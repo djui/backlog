@@ -3,12 +3,13 @@ import SwiftData
 import SwiftUI
 
 enum LibrarySection: String, Hashable, CaseIterable, Identifiable {
-    case upNext, downloading, history
+    case upNext, starred, downloading, history
     var id: Self { self }
 
     var title: String {
         switch self {
         case .upNext: "Up Next"
+        case .starred: "Starred"
         case .downloading: "Downloading"
         case .history: "History"
         }
@@ -17,6 +18,7 @@ enum LibrarySection: String, Hashable, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .upNext: "list.bullet"
+        case .starred: "star"
         case .downloading: "arrow.down.circle"
         case .history: "clock"
         }
@@ -31,6 +33,7 @@ struct RootView: View {
     @State private var section: LibrarySection? = .upNext
     @FocusState private var searchFocused: Bool
     @State private var pendingRemoval: [Item] = []
+    @AppStorage("showPanel") private var showPanel = true
 
     private func perform(_ command: ItemCommand, on targets: [Item]) {
         BatchActions.perform(command, on: targets, context: context, downloader: downloader)
@@ -70,13 +73,17 @@ struct RootView: View {
                                        description: Text("Paste a link with ⌘V, drop one here, or press ⌘N."))
             }
         }
+        .searchable(text: $app.searchText, placement: .toolbar, prompt: "Search")
         .toolbar {
+            // Search, then the panel toggle as the last item on the right.
+            DefaultToolbarItem(kind: .search, placement: .primaryAction)
             ToolbarItem(placement: .primaryAction) {
-                Button { app.showAddSheet = true } label: { Label("Add Link", systemImage: "plus") }
-                    .help("Add a link (⌘N)")
+                Button { showPanel.toggle() } label: { Label("Summary & Transcript", systemImage: "sidebar.right") }
+                    .help("Show or hide the summary and transcript (⌥⌘I)")
+                    .keyboardShortcut("i", modifiers: [.command, .option])
+                    .disabled(app.selection == nil)
             }
         }
-        .searchable(text: $app.searchText, placement: .toolbar, prompt: "Search titles, captions, pictures, transcripts…")
         .searchFocused($searchFocused)
         .onChange(of: app.command) { _, command in
             guard let command else { return }
@@ -125,6 +132,7 @@ struct RootView: View {
         switch section {
         case .upNext: items.filter { !$0.state.isFinished }.count
         case .downloading: items.filter { downloader.status(of: $0).isActive }.count
+        case .starred: items.filter(\.starred).count
         case .history: items.filter(\.state.isFinished).count
         }
     }

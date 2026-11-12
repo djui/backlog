@@ -19,6 +19,8 @@ struct ItemListView: View {
         switch section {
         case .upNext:
             items.filter { !$0.state.isFinished }
+        case .starred:
+            items.filter(\.starred)
         case .downloading:
             items.filter { s in
                 switch downloader.status(of: s) {
@@ -50,8 +52,11 @@ struct ItemListView: View {
         .navigationTitle(section.title)
         .navigationSubtitle(subtitle(shown))
         .toolbar {
-            ToolbarItem {
+            ToolbarItemGroup(placement: .navigation) {
+                Spacer()
                 ListOptionsMenu(length: $length, sort: $sort)
+                Button { app.showAddSheet = true } label: { Label("Add Link", systemImage: "plus") }
+                    .help("Add a link (⌘N)")
             }
         }
         .overlay {
@@ -79,6 +84,7 @@ struct ItemListView: View {
     private var emptyTitle: String {
         switch section {
         case .upNext: "Nothing up next"
+        case .starred: "Nothing starred"
         case .downloading: "No downloads"
         case .history: "No history yet"
         }

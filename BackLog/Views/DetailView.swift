@@ -83,13 +83,6 @@ struct DetailView: View {
             }
             .inspectorColumnWidth(min: 240, ideal: 300, max: 440)
         }
-        .toolbar {
-            ToolbarItem {
-                Button { showPanel.toggle() } label: { Label("Summary & Transcript", systemImage: "sidebar.right") }
-                    .help("Show or hide the summary and transcript (⌥⌘I)")
-                    .keyboardShortcut("i", modifiers: [.command, .option])
-            }
-        }
     }
 }
 
@@ -156,9 +149,12 @@ struct ItemActions: View {
                 item.starred.toggle()
                 try? context.save()
             } label: {
-                Label(item.starred ? "Unstar" : "Star", systemImage: item.starred ? "star.fill" : "star")
-                    .labelStyle(.iconOnly)
-                    .foregroundStyle(item.starred ? .yellow : .secondary)
+                Label {
+                    Text(item.starred ? "Starred" : "Star")
+                } icon: {
+                    Image(systemName: item.starred ? "star.fill" : "star").foregroundStyle(item.starred ? .yellow : .secondary)
+                }
+                .labelStyle(StarLabelStyle(compact: compact))
             }
             .help(item.starred ? "Unstar (⌥⌘S)" : "Star: keep the download and find it easily (⌥⌘S)")
             .fixedSize()
@@ -173,7 +169,7 @@ struct ItemActions: View {
             if compact {
                 Label(title, systemImage: symbol).labelStyle(.iconOnly)
             } else {
-                Label(title, systemImage: symbol).labelStyle(.titleOnly)
+                Label(title, systemImage: symbol).labelStyle(.titleAndIcon)
             }
         }
         .help(title)
@@ -426,6 +422,18 @@ struct AddLinkSheet: View {
         .frame(width: 460)
         .onAppear {
             if let clip = NSPasteboard.general.string(forType: .string), SharedLink.parse(clip) != nil { text = clip }
+        }
+    }
+}
+
+/// Icon and title, or the icon alone in narrow layouts.
+private struct StarLabelStyle: LabelStyle {
+    let compact: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        if compact {
+            configuration.icon
+        } else {
+            HStack(spacing: 5) { configuration.icon; configuration.title }
         }
     }
 }
