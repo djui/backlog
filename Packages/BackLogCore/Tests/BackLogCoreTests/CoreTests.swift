@@ -340,3 +340,22 @@ import Testing
         #expect(CaptionTitle.instagramCaption(fromPageTitle: "Some page") == nil)
     }
 }
+
+@Suite struct ListOptionsTests {
+    @Test func lengthBuckets() {
+        #expect(LengthFilter.under5.matches(seconds: 43))
+        #expect(!LengthFilter.under5.matches(seconds: 0))
+        #expect(LengthFilter.from5to15.matches(seconds: 600))
+        #expect(LengthFilter.over15.matches(seconds: 1120))
+        #expect(LengthFilter.any.matches(seconds: 0))
+    }
+
+    @Test func sortsByLengthWithUnknownLast() {
+        let items: [(Double, Double)] = [(0, 1), (600, 2), (40, 3), (1200, 4)]
+        let d = Date()
+        let shortest = items.sorted { ListSort.shortest.areInIncreasingOrder(seconds: $0.0, $1.0, added: d, d, manual: $0.1, $1.1) }.map(\.1)
+        let longest = items.sorted { ListSort.longest.areInIncreasingOrder(seconds: $0.0, $1.0, added: d, d, manual: $0.1, $1.1) }.map(\.1)
+        #expect(shortest == [3, 2, 4, 1])
+        #expect(longest == [4, 2, 3, 1])
+    }
+}

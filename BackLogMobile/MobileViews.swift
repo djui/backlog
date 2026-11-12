@@ -51,8 +51,12 @@ struct MobileList: View {
     @Query(sort: \Item.sortIndex) private var items: [Item]
     @State private var finishedTick = 0
     @State private var showSettings = false
+    @AppStorage("lengthFilter") private var length: LengthFilter = .any
+    @AppStorage("listSort") private var sort: ListSort = .manual
 
-    private var shown: [Item] {
+    private var shown: [Item] { Library.arrange(base, length: length, sort: sort) }
+
+    private var base: [Item] {
         switch section {
         case .upNext: items.filter { !$0.state.isFinished }
         case .history: items.filter(\.state.isFinished).sorted { ($0.consumedAt ?? $0.addedAt) > ($1.consumedAt ?? $1.addedAt) }
@@ -79,7 +83,7 @@ struct MobileList: View {
                     }
                     .contextMenu { menu(for: item) }
             }
-            .onMove(perform: section == .upNext ? { Library.move(shown, from: $0, to: $1, context: context) } : nil)
+            .onMove(perform: section == .upNext && sort == .manual && length == .any ? { Library.move(shown, from: $0, to: $1, context: context) } : nil)
         }
         .listStyle(.plain)
         .navigationTitle(section == .upNext ? "Up Next" : "History")
@@ -97,9 +101,28 @@ struct MobileList: View {
                         .accessibilityLabel("Add link")
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Picker("Length", selection: $length) {
+                        ForEach(LengthFilter.allCases) { Text($0.label).tag($0) }
+                    }
+                    Picker("Sort", selection: $sort) {
+                        ForEach(ListSort.allCases) { Text($0.label).tag($0) }
+                    }
+                } label: {
+                    Image(systemName: length == .any && sort == .manual ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                }
+                .accessibilityLabel("Filter and sort")
+            }
         }
         .overlay {
-            if shown.isEmpty {
+            if shown.isEmpty, length != .any, !base.isEmpty {
+                ContentUnavailableView {
+                    Label("Nothing \(length.label.lowercased())", systemImage: "line.3.horizontal.decrease.circle")
+                } actions: {
+                    Button("Show Any Length") { length = .any }
+                }
+            } else if shown.isEmpty {
                 ContentUnavailableView(section == .upNext ? "Nothing up next" : "No history yet",
                                        systemImage: section == .upNext ? "tray" : "clock",
                                        description: Text(section == .upNext ? "Share a link to BackLog from any app, or tap +." : "What you watch and read lands here."))

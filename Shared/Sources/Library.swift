@@ -77,6 +77,16 @@ enum Library {
         try? context.save()
     }
 
+    /// Filters a list by length and sorts it. `.manual` keeps the given order (Up Next's own order,
+    /// or most recently finished first in History).
+    static func arrange(_ items: [Item], length: LengthFilter, sort: ListSort) -> [Item] {
+        let filtered = length == .any ? items : items.filter { length.matches(seconds: $0.durationSeconds) }
+        guard sort != .manual else { return filtered }
+        return filtered.sorted {
+            sort.areInIncreasingOrder(seconds: $0.durationSeconds, $1.durationSeconds, added: $0.addedAt, $1.addedAt, manual: $0.sortIndex, $1.sortIndex)
+        }
+    }
+
     /// Set by the app: re-applies the storage rules after changes.
     static var onChange: (() -> Void)?
 
