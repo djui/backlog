@@ -23,6 +23,12 @@ import Testing
         #expect(SourceClassifier.canonical(URL(string: "https://www.youtube.com/shorts/abc")!).absoluteString == "https://www.youtube.com/watch?v=abc")
     }
 
+    @Test func instagramAndYouTubeIgnoreShareParameters() {
+        #expect(SourceClassifier.canonical(URL(string: "https://www.instagram.com/p/DdT_LiUCFKA/?img_index=9&stkn=MTVw")!).absoluteString == "https://www.instagram.com/p/DdT_LiUCFKA/")
+        #expect(SourceClassifier.canonical(URL(string: "https://youtube.com/shorts/s2XKd0pe2Gc?is=Zec9")!).absoluteString == "https://www.youtube.com/watch?v=s2XKd0pe2Gc")
+        #expect(SourceClassifier.canonical(URL(string: "https://www.youtube.com/watch?v=a&t=30&pp=x&feature=y")!).absoluteString == "https://www.youtube.com/watch?v=a&t=30")
+    }
+
     @Test func dropsTrackingParameters() {
         let url = URL(string: "http://example.com/a?utm_source=x&id=3&fbclid=y#top")!
         #expect(SourceClassifier.canonical(url).absoluteString == "https://example.com/a?id=3")
@@ -279,5 +285,35 @@ import Testing
             c(5), c(6),
         ]
         #expect(Set(p.toDelete(items, now: now)) == Set([items[0].id, items[1].id, items[2].id, items[5].id]))
+    }
+}
+
+@Suite struct ChatImportTests {
+    let utc = TimeZone(identifier: "UTC")!
+
+    @Test func parsesWhatsAppExport() throws {
+        let chat = """
+        [2026-08-16, 06:37:56] Uwe: https://www.instagram.com/reel/DZ-0egMNKvD/?igsh=MXUw
+        [2026-08-17, 14:43:08] Anna: look at this https://youtube.com/shorts/s2XKd0pe2Gc?is=Zec9
+        still the same message
+        [2026-08-18, 11:57:56] Uwe: https://www.instagram.com/reel/DZ-0egMNKvD/?stkn=other
+        17/08/2026, 09:05 - Max: https://example.com/a
+        """
+        let entries = ChatImport.parse(chat, timeZone: utc)
+        #expect(entries.count == 3)  // the second Instagram link is the same reel
+        #expect(entries[0].sender == "Uwe")
+        #expect(entries[0].link.kind == .reel)
+        #expect(entries[0].date == Date(timeIntervalSince1970: 1786862276))
+        #expect(entries[1].sender == "Anna" && entries[1].link.note == "look at this")
+        #expect(entries[1].link.kind == .reel)
+        #expect(entries[2].sender == "Max")
+        let max = try #require(entries[2].date)
+        #expect(Calendar(identifier: .gregorian).dateComponents(in: utc, from: max).day == 17)
+    }
+
+    @Test func plainTextWithSeveralLinks() {
+        let entries = ChatImport.parse("one https://a.com/x and https://b.com/y")
+        #expect(entries.map(\.link.url.host) == ["a.com", "b.com"])
+        #expect(entries.allSatisfy { $0.date == nil && $0.sender == nil })
     }
 }

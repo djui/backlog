@@ -84,6 +84,16 @@ public enum SourceClassifier {
             components.queryItems = [URLQueryItem(name: "v", value: id)]
         }
 
+        // On these sites the query is only share tracking (igsh, stkn, mdxt, …, which change all
+        // the time); the path alone names the post.
+        let queryless = ["instagram.com", "tiktok.com", "vm.tiktok.com", "threads.net", "x.com", "twitter.com"]
+        if queryless.contains(host) { components.queryItems = nil }
+        // YouTube: only the video and the start time matter.
+        if host == "youtube.com" || host == "youtu.be" {
+            let kept = (components.queryItems ?? []).filter { ["v", "t", "list"].contains($0.name) }
+            components.queryItems = kept.isEmpty ? nil : kept
+        }
+
         if let items = components.queryItems {
             let kept = items.filter { item in
                 let name = item.name.lowercased()

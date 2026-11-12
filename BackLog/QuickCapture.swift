@@ -29,6 +29,7 @@ final class QuickCapture {
         switch result {
         case .added(let item): showHUD("Saved to BackLog", item.title)
         case .duplicate(let item): showHUD("Already saved — moved to Up Next", item.title)
+        case .imported(let added, let skipped): showHUD("Imported \(added) links", skipped > 0 ? "\(skipped) were already saved" : "Added to Up Next")
         case .noLink: showHUD("No link to save", "Open a page in your browser or copy a link")
         }
     }

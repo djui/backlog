@@ -6,8 +6,17 @@ import SwiftData
 enum Persistence {
     static let cloudContainer = "iCloud.com.djui.BackLog"
 
+    /// Debug builds sync with CloudKit's development environment, releases with production. They
+    /// must never share a store: CloudKit sees two different histories, and Core Data answers
+    /// "client knowledge differs from server knowledge" by wiping the local copy and reloading it
+    /// from whichever environment the running build uses.
     static var storeURL: URL {
-        ItemFiles.root.deletingLastPathComponent().appending(path: "Library.store")
+        #if DEBUG
+        let name = "Library-Development.store"
+        #else
+        let name = "Library.store"
+        #endif
+        return ItemFiles.root.deletingLastPathComponent().appending(path: name)
     }
 
     static func makeContainer() -> ModelContainer {
@@ -27,7 +36,7 @@ enum Persistence {
 
     /// Early Mac builds used SwiftData's default store; move it to BackLog's own folder once.
     private static func migrateDefaultStore() {
-        #if os(macOS)
+        #if os(macOS) && !DEBUG
         let fm = FileManager.default
         guard !fm.fileExists(atPath: storeURL.path) else { return }
         let old = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appending(path: "default.store")
