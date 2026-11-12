@@ -59,6 +59,24 @@ enum Library {
         return .imported(added: added.count, skipped: entries.count - added.count)
     }
 
+    /// Replaces a placeholder title ("Video by …", the bare URL) with one made from the caption, or
+    /// "Reel by @user" when there's no caption to go on.
+    static func improveTitle(_ item: Item) {
+        guard CaptionTitle.isGeneric(item.title, author: item.author, url: item.urlString) else { return }
+        if let title = CaptionTitle.make(from: item.details) {
+            item.title = title
+        } else if !item.author.isEmpty, item.title != item.urlString || item.capturedAt != nil {
+            item.title = "\(item.kind.label) by @\(item.author)"
+        }
+    }
+
+    /// Fixes placeholder titles of items saved before titles were made from captions.
+    static func improveTitles(context: ModelContext) {
+        let items = (try? context.fetch(FetchDescriptor<Item>())) ?? []
+        for item in items where item.capturedAt != nil { improveTitle(item) }
+        try? context.save()
+    }
+
     /// Set by the app: re-applies the storage rules after changes.
     static var onChange: (() -> Void)?
 

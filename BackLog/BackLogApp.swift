@@ -59,6 +59,7 @@ struct BackLogApp: App {
                 .environment(search)
                 .frame(minWidth: 960, minHeight: 600)
                 .task {
+                    Library.improveTitles(context: container.mainContext)
                     backfillSearch()
                     await ToolManager.shared.ensure()
                     downloader.resumePending(in: container.mainContext)

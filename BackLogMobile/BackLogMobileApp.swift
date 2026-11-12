@@ -44,6 +44,7 @@ struct BackLogMobileApp: App {
                 .onOpenURL(perform: handle)
                 .task {
                     importInbox()
+                    Library.improveTitles(context: container.mainContext)
                     downloader.resumePending(in: container.mainContext)
                     captureArticlesForOffline()
                     search.indexMissing((try? container.mainContext.fetch(FetchDescriptor<Item>())) ?? [])

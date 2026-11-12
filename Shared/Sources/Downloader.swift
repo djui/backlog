@@ -180,6 +180,13 @@ final class Downloader {
         if let a = meta.author, !a.isEmpty, !isThread { item.author = a }
         if let p = meta.publishedAt { item.publishedAt = p }
         if let d = meta.durationSeconds, item.durationSeconds == 0 { item.durationSeconds = d }
+        // Instagram's page title is `Name on Instagram: "caption"`.
+        if let t = meta.title, let caption = CaptionTitle.instagramCaption(fromPageTitle: t) {
+            if item.details.isEmpty || item.details == meta.description { item.details = caption }
+            if item.author.isEmpty || item.author == SourceClassifier.normalizedHost(url),
+               let name = t.components(separatedBy: " on Instagram: ").first { item.author = name }
+        }
+        Library.improveTitle(item)
         if let image = meta.imageURL, !FileManager.default.fileExists(atPath: files.thumbnail.path) {
             await PageFetcher.image(image, to: files.thumbnail)
             item.thumbnailURL = image.absoluteString
@@ -228,6 +235,7 @@ final class Downloader {
             item.publishedAt = f.date(from: date)
         }
         if let site = meta.extractor { item.siteName = Self.siteNames[site.lowercased()] ?? site }
+        Library.improveTitle(item)
         item.capturedAt = .now
         try? container.mainContext.save()
     }

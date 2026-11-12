@@ -317,3 +317,26 @@ import Testing
         #expect(entries.allSatisfy { $0.date == nil && $0.sender == nil })
     }
 }
+
+@Suite struct CaptionTitleTests {
+    @Test func recognizesPlaceholders() {
+        #expect(CaptionTitle.isGeneric("Video by omer_yaskil"))
+        #expect(CaptionTitle.isGeneric("Instagram"))
+        #expect(CaptionTitle.isGeneric("omer_yaskil", author: "omer_yaskil"))
+        #expect(!CaptionTitle.isGeneric("Crispy chickpeas in 20 minutes"))
+    }
+
+    @Test func titleFromCaption() {
+        #expect(CaptionTitle.make(from: "🔥🔥🔥\nCrispy roasted chickpeas in 20 minutes. Oven at 220°C, olive oil, paprika. #recipe #snack @chef") == "Crispy roasted chickpeas in 20 minutes.")
+        #expect(CaptionTitle.make(from: "#tbt #mood") == nil)
+        #expect(CaptionTitle.make(from: "Wait for it 😂 @friend") == "Wait for it 😂")
+        let long = String(repeating: "word ", count: 40)
+        #expect(CaptionTitle.make(from: long)!.count <= 91)
+        #expect(CaptionTitle.make(from: long)!.hasSuffix("…"))
+    }
+
+    @Test func instagramPageTitle() {
+        #expect(CaptionTitle.instagramCaption(fromPageTitle: "Anna on Instagram: \"Best pasta ever\"") == "Best pasta ever")
+        #expect(CaptionTitle.instagramCaption(fromPageTitle: "Some page") == nil)
+    }
+}
