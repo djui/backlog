@@ -43,8 +43,8 @@ struct DetailView: View {
                                     if item.kind.isPlayable {
                                         VStack(spacing: 8) {
                                             StatusLine(item: item, status: status)
-                                            if case .failed = status { Button("Try Again") { downloader.enqueue(item) } }
-                                            else if !status.isActive { Button("Download") { downloader.enqueue(item) } }
+                                            if case .failed = status { Button("Try Again") { downloader.enqueue(item, media: true) } }
+                                            else if !status.isActive { Button("Download") { downloader.enqueue(item, media: true) } }
                                         }
                                         .padding(12)
                                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
@@ -149,6 +149,13 @@ struct ItemActions: View {
                     .buttonStyle(.borderedProminent)
                 Button("Skip") { Library.finish(item, as: .skipped, context: context) }
             }
+            Button {
+                item.starred.toggle()
+                try? context.save()
+            } label: {
+                Image(systemName: item.starred ? "star.fill" : "star").foregroundStyle(item.starred ? .yellow : .secondary)
+            }
+            .help(item.starred ? "Unstar (⌥⌘S)" : "Star: keep the download and find it easily (⌥⌘S)")
             Spacer()
             if let url = item.url { Button("Open Original") { NSWorkspace.shared.open(url) } }
             if let media { Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([media]) } }

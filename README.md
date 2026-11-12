@@ -13,7 +13,7 @@ history of what you've consumed.
 
 ## Status
 
-Early. M1: add links, download, play, history. M2: transcripts, on-device summaries (TL;DR → detailed), Skim mode. M3: any link (articles saved offline with Readability, reels, Hacker News), preview images read with Vision, search by words and meaning (⌘F).
+Early. M1: add links, download, play, history. M2: transcripts, on-device summaries (TL;DR → detailed), Skim mode. M3: any link (articles saved offline, reels, Hacker News), preview images read with Vision, search by words and meaning (⌘F). M4: storage rules (download the next few, auto-delete watched, size limit), History export to Markdown + JSONL (for LifeLog), Settings, menu bar, Share menu, ⌥⌘L from any browser, stars.
 
 ## Build
 

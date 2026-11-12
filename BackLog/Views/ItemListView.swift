@@ -89,7 +89,7 @@ struct ItemListView: View {
             case .queued, .fetchingInfo, .downloading:
                 Button("Stop Download") { downloader.cancel(item) }
             default:
-                Button(ItemFiles(id: item.id).media == nil ? "Download" : "Download Again") { downloader.enqueue(item) }
+                Button(ItemFiles(id: item.id).media == nil ? "Download" : "Download Again") { downloader.enqueue(item, media: true) }
             }
             if ItemFiles(id: item.id).media != nil {
                 Button("Delete Download, Keep in Library") { ItemFiles(id: item.id).deleteMedia(); try? context.save() }
@@ -160,9 +160,12 @@ struct ItemRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.title)
-                    .font(.headline)
-                    .lineLimit(2)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    if item.starred { Image(systemName: "star.fill").font(.caption).foregroundStyle(.yellow) }
+                    Text(item.title)
+                        .font(.headline)
+                        .lineLimit(2)
+                }
                 Text([item.kind.label, item.author].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

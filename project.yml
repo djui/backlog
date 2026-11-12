@@ -41,3 +41,24 @@ targets:
         SWIFT_STRICT_CONCURRENCY: minimal
     dependencies:
       - package: BackLogCore
+      - target: BackLogShare
+        embed: true
+  BackLogShare:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: BackLogShare
+        excludes:
+          - "Info.plist"
+          - "BackLogShare.entitlements"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.djui.BackLog.Share
+        PRODUCT_NAME: BackLogShare
+        INFOPLIST_FILE: BackLogShare/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BackLogShare/BackLogShare.entitlements
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks @executable_path/../../../../Frameworks"

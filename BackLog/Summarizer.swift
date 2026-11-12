@@ -73,11 +73,11 @@ final class Summarizer {
     /// Queues a summary when the item has a transcript and no summary yet (or always, with `force`).
     func summarize(_ item: Item, force: Bool = false) {
         guard force || item.summaryJSON.isEmpty, !queue.contains(item.id) else { return }
+        guard Self.source(for: item) != nil else { return }
         guard case .idle = status(of: item), Self.unavailableReason == nil else {
             if let reason = Self.unavailableReason { status[item.id] = .failed(reason) }
             return
         }
-        guard Self.source(for: item) != nil else { return }
         queue.append(item.id)
         status[item.id] = .working("Waiting…")
         Task { await drain() }

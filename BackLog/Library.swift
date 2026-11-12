@@ -27,12 +27,17 @@ enum Library {
         context.insert(item)
         try? context.save()
         downloader.enqueue(item)
+        onChange?()
         return .added(item)
     }
+
+    /// Set by the app: re-applies the storage rules after changes.
+    static var onChange: (() -> Void)?
 
     static func finish(_ item: Item, as state: ItemState = .done, context: ModelContext) {
         item.state = state
         try? context.save()
+        onChange?()
     }
 
     /// Removes the item from the library entirely, files included.
@@ -49,5 +54,6 @@ enum Library {
         ordered.move(fromOffsets: source, toOffset: destination)
         for (i, item) in ordered.enumerated() { item.sortIndex = Double(i) }
         try? context.save()
+        onChange?()
     }
 }

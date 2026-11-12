@@ -36,6 +36,8 @@ final class Item {
     var capturedAt: Date?
     /// Everything searchable, lower-cased: title, author, details, note, image, summary, transcript start.
     var searchText: String = ""
+    /// Starred items keep their downloads regardless of the storage rules.
+    var starred: Bool = false
 
     init(url: URL, kind: MediaKind, note: String = "", sortIndex: Double) {
         id = UUID()

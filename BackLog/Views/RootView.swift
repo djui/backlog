@@ -74,6 +74,11 @@ struct RootView: View {
         }
         .searchable(text: $app.searchText, placement: .toolbar, prompt: "Search titles, captions, pictures, transcripts…")
         .searchFocused($searchFocused)
+        .onChange(of: app.toggleStarSelected) { _, on in
+            guard on else { return }
+            app.toggleStarSelected = false
+            if let id = app.selection, let item = items.first(where: { $0.id == id }) { item.starred.toggle() }
+        }
         .onChange(of: app.focusSearch) { _, focus in
             if focus { searchFocused = true; app.focusSearch = false }
         }

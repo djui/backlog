@@ -29,6 +29,10 @@ final class Downloader {
     /// Called when an item's files are complete, e.g. to summarize it.
     @ObservationIgnored var onFinished: ((Item) -> Void)?
     @ObservationIgnored var search: SearchIndex?
+    /// Decides whether an item's media is wanted now (the storage rules). Without it, always.
+    @ObservationIgnored var wantsMedia: ((Item) -> Bool)?
+    /// Items whose media was asked for explicitly or by the rules.
+    @ObservationIgnored private var mediaRequested: Set<UUID> = []
 
     @ObservationIgnored private var waiting: [PersistentIdentifier] = []
     @ObservationIgnored private var running: [UUID: Task<Void, Never>] = [:]
@@ -40,7 +44,10 @@ final class Downloader {
 
     var activeCount: Int { status.values.filter(\.isActive).count }
 
-    func enqueue(_ item: Item) {
+    /// Queues an item for capture. `media: true` downloads its video even if the storage rules
+    /// wouldn't (the Download button).
+    func enqueue(_ item: Item, media: Bool = false) {
+        if media { mediaRequested.insert(item.id) }
         guard !(status[item.id]?.isActive ?? false) else { return }
         status[item.id] = .queued
         waiting.append(item.persistentModelID)
@@ -48,6 +55,7 @@ final class Downloader {
     }
 
     func cancel(_ item: Item) {
+        mediaRequested.remove(item.id)
         running[item.id]?.cancel()
         waiting.removeAll { $0 == item.persistentModelID }
         status[item.id] = .idle
@@ -57,8 +65,7 @@ final class Downloader {
     func resumePending(in context: ModelContext) {
         let items = (try? context.fetch(FetchDescriptor<Item>())) ?? []
         for item in items {
-            let needsMedia = !item.state.isFinished && item.kind.isPlayable && ItemFiles(id: item.id).media == nil
-            if item.capturedAt == nil || needsMedia { enqueue(item) }
+            if item.capturedAt == nil { enqueue(item) }
         }
     }
 
@@ -115,7 +122,9 @@ final class Downloader {
             return item.kind == .reel ? "Couldn't download — saved the caption and picture" : YTDLP.friendlyError(error.message)
         }
         apply(meta, to: item)
-        if item.state.isFinished, files.media == nil { return nil }  // History: details only.
+        let wanted = mediaRequested.contains(item.id) || (wantsMedia?(item) ?? true)
+        mediaRequested.remove(item.id)
+        guard wanted || files.media != nil else { return nil }  // Details only, for now.
 
         if files.media == nil {
             status[item.id] = .downloading(fraction: nil, bytesPerSecond: nil)
@@ -193,6 +202,8 @@ final class Downloader {
         search?.index(item)
     }
 
+    static let siteNames = ["youtube": "YouTube", "instagram": "Instagram", "tiktok": "TikTok", "vimeo": "Vimeo", "twitch": "Twitch", "ted": "TED", "dailymotion": "Dailymotion"]
+
     private func apply(_ meta: YTDLPMetadata, to item: Item) {
         if !meta.title.isEmpty { item.title = meta.title }
         if !meta.author.isEmpty { item.author = meta.author }
@@ -204,7 +215,7 @@ final class Downloader {
             f.dateFormat = "yyyyMMdd"
             item.publishedAt = f.date(from: date)
         }
-        if let site = meta.extractor { item.siteName = site }
+        if let site = meta.extractor { item.siteName = Self.siteNames[site.lowercased()] ?? site }
         item.capturedAt = .now
         try? container.mainContext.save()
     }

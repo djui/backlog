@@ -9,6 +9,7 @@ struct BackLogApp: App {
     @State private var downloader: Downloader
     @State private var summarizer: Summarizer
     @State private var search = SearchIndex()
+    private let storage: StorageManager
     @State private var app = AppState()
 
     init() {
@@ -29,6 +30,18 @@ struct BackLogApp: App {
             search.index(item)
         }
         _search = State(initialValue: search)
+        let storage = StorageManager(container: container, downloader: downloader)
+        downloader.wantsMedia = { storage.wantsMedia($0) }
+        Library.onChange = { storage.schedule() }
+        self.storage = storage
+        let app = AppState()
+        _app = State(initialValue: app)
+        QuickCapture.shared.onCapture = { text in
+            let result = Library.add(text: text, sharedBy: "", context: container.mainContext, downloader: downloader)
+            app.report(result)
+            return result
+        }
+        QuickCapture.shared.registerHotKey()
         _downloader = State(initialValue: downloader)
         _summarizer = State(initialValue: summarizer)
     }
@@ -45,11 +58,13 @@ struct BackLogApp: App {
                     backfillSearch()
                     downloader.resumePending(in: container.mainContext)
                     summarizer.summarizeMissing()
-                    await summarizer.watchAvailability()
+                    async let rules: Void = storage.runPeriodically()
+                    async let model: Void = summarizer.watchAvailability()
+                    _ = await (rules, model)
                 }
                 .onOpenURL(perform: handle)
         }
-        .defaultSize(width: 1280, height: 800)
+        .defaultSize(width: 1360, height: 820)
         .modelContainer(container)
         .commands {
             CommandGroup(after: .newItem) {
@@ -58,10 +73,26 @@ struct BackLogApp: App {
                 Button("Add Link from Clipboard") { addFromClipboard() }
                     .keyboardShortcut("v", modifiers: [.command, .shift])
             }
+            CommandGroup(after: .sidebar) {
+                Button("Star") { app.toggleStarSelected = true }
+                    .keyboardShortcut("s", modifiers: [.command, .option])
+            }
             CommandGroup(after: .textEditing) {
                 Button("Search Library") { app.focusSearch = true }
                     .keyboardShortcut("f")
             }
+        }
+
+        Settings {
+            SettingsView()
+                .modelContainer(container)
+        }
+
+        MenuBarExtra("BackLog", systemImage: "tray.full") {
+            MenuBarContent()
+                .environment(downloader)
+                .environment(app)
+                .modelContainer(container)
         }
     }
 
@@ -97,6 +128,7 @@ final class AppState {
     var showAddSheet = false
     var searchText = ""
     var focusSearch = false
+    var toggleStarSelected = false
     var selection: UUID?
     var toast: String?
 

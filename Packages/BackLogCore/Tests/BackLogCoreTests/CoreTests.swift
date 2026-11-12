@@ -174,3 +174,101 @@ import Testing
         #expect(md == "# Title\n\nSome **bold** and [a link](https://x.y).\n\n- One\n- Two\n\n![Pic](p.jpg)\n")
     }
 }
+
+@Suite struct HistoryExportTests {
+    let utc = TimeZone(identifier: "UTC")!
+    func entry(_ title: String, at seconds: TimeInterval, takeaway: String? = nil) -> ExportEntry {
+        ExportEntry(id: UUID(uuidString: "00000000-0000-0000-0000-00000000000\(Int(seconds) % 10)")!, url: "https://x.y/\(title)",
+                    title: title, type: "video", status: "watched", added: Date(timeIntervalSince1970: seconds - 60),
+                    consumed: Date(timeIntervalSince1970: seconds), author: "Ch", durationMinutes: 12, sharedBy: "Anna · WhatsApp",
+                    note: "line one\nline two", takeaway: takeaway, keyPoints: takeaway == nil ? [] : ["p1"])
+    }
+
+    @Test func markdownIsStableAndParseable() {
+        let md = HistoryExport.markdown(day: "1970-01-01", entries: [entry("B", at: 7200, takeaway: "Do X."), entry("A", at: 3600)], timeZone: utc)
+        #expect(md == """
+        ---
+        date: 1970-01-01
+        source: backlog
+        count: 2
+        ---
+
+        ## 01:00 · Watched · A
+
+        - id: 00000000-0000-0000-0000-000000000000
+        - url: https://x.y/A
+        - type: video
+        - status: watched
+        - added: 1970-01-01T00:59:00Z
+        - consumed: 1970-01-01T01:00:00Z
+        - author: Ch
+        - duration: 12 min
+        - from: Anna · WhatsApp
+        - note: line one line two
+
+        ## 02:00 · Watched · B
+
+        - id: 00000000-0000-0000-0000-000000000000
+        - url: https://x.y/B
+        - type: video
+        - status: watched
+        - added: 1970-01-01T01:59:00Z
+        - consumed: 1970-01-01T02:00:00Z
+        - author: Ch
+        - duration: 12 min
+        - from: Anna · WhatsApp
+        - note: line one line two
+
+        > Do X.
+
+        - p1
+
+        """)
+    }
+
+    @Test func writesFilesPerDayAndSkipsUnchanged() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let entries = [entry("A", at: 3600), entry("B", at: 86_400 * 400)]
+        #expect(try HistoryExport.write(entries, to: dir) == 3)
+        #expect(try HistoryExport.write(entries, to: dir) == 0)
+        #expect(FileManager.default.fileExists(atPath: dir.appending(path: "1970/" + HistoryExport.dayKey(Date(timeIntervalSince1970: 3600)) + ".md").path))
+        let jsonl = try String(contentsOf: dir.appending(path: "backlog.jsonl"), encoding: .utf8)
+        #expect(jsonl.split(separator: "\n").count == 2)
+    }
+}
+
+@Suite struct StoragePolicyTests {
+    let now = Date(timeIntervalSince1970: 100 * 86_400)
+    func c(_ n: Int, finished: Bool = false, finishedDaysAgo: Double? = nil, addedDaysAgo: Double = 1, played: Double = 0, media: Bool = true, bytes: Int64 = 100) -> StoragePolicy.Candidate {
+        .init(id: UUID(uuidString: "00000000-0000-0000-0000-0000000000\(String(format: "%02d", n))")!, isPlayable: true, isFinished: finished,
+              finishedAt: finishedDaysAgo.map { now.addingTimeInterval(-$0 * 86_400) }, addedAt: now.addingTimeInterval(-addedDaysAgo * 86_400),
+              lastPlayedPosition: played, sortIndex: Double(n), hasMedia: media, mediaBytes: bytes)
+    }
+
+    @Test func downloadsOnlyTheNextFew() {
+        var p = StoragePolicy()
+        p.downloadAhead = 2
+        let items = [c(1, media: true), c(2, media: false), c(3, media: false), c(4, finished: true, media: false)]
+        #expect(p.toDownload(items) == [items[1].id])
+        p.autoDownload = .everything
+        #expect(p.toDownload(items) == [items[1].id, items[2].id])
+        p.autoDownload = .manual
+        #expect(p.toDownload(items).isEmpty)
+    }
+
+    @Test func deletesWatchedUntouchedAndOverLimit() {
+        var p = StoragePolicy()
+        p.deleteWatchedAfterDays = 3
+        p.deleteUntouchedAfterDays = 30
+        p.limitBytes = 250
+        let items = [
+            c(1, finished: true, finishedDaysAgo: 5),       // watched long ago → delete
+            c(2, finished: true, finishedDaysAgo: 1),       // watched recently → over limit → delete (oldest watched)
+            c(3, addedDaysAgo: 40),                         // untouched 40 days → delete
+            c(4, addedDaysAgo: 40, played: 12),             // started → keep
+            c(5), c(6),
+        ]
+        #expect(Set(p.toDelete(items, now: now)) == Set([items[0].id, items[1].id, items[2].id, items[5].id]))
+    }
+}
