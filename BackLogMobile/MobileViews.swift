@@ -238,13 +238,7 @@ struct MobileDetail: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(item.title).font(.title2.bold())
                     Text(meta).font(.subheadline).foregroundStyle(.secondary)
-                    if !item.sharedBy.isEmpty || !item.note.isEmpty {
-                        Text([item.sharedBy, item.note].filter { !$0.isEmpty }.joined(separator: " — "))
-                            .font(.callout)
-                            .padding(10)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
-                    }
+                    SharedByCard(item: item)
                 }
 
                 if let summary = item.summary {
@@ -448,6 +442,7 @@ struct MobileAddSheet: View {
     @Environment(AppState.self) private var app
     @State private var text = ""
     @State private var from = ""
+    @State private var tags: [String] = []
 
     var body: some View {
         NavigationStack {
@@ -459,7 +454,11 @@ struct MobileAddSheet: View {
                         .textInputAutocapitalization(.never)
                     PasteButton(payloadType: String.self) { strings in text = strings.first ?? "" }
                 }
-                Section { TextField("From (e.g. Anna)", text: $from) }
+                Section("From") {
+                    TextField("Who or where it’s from", text: $from)
+                    SuggestionChips(values: Suggestions.rank(Recents.from, presets: Recents.sourcePresets, typed: from, excluding: [from], limit: 10)) { from = $0 }
+                }
+                Section("Tags") { TagField(tags: $tags) }
                 if let link = SharedLink.parse(text) {
                     Section { Label("\(link.kind.label) · \(SourceClassifier.normalizedHost(link.url))", systemImage: "link") }
                 }
@@ -470,7 +469,10 @@ struct MobileAddSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel", role: .cancel) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        app.report(Library.add(text: text, sharedBy: from, context: context, downloader: downloader))
+                        Recents.remember(from: from)
+                        Recents.remember(tags: tags)
+                        let withTags = tags.isEmpty ? text : text + "\n" + Tags.compose(note: "", tags: tags)
+                        app.report(Library.add(text: withTags, sharedBy: from, context: context, downloader: downloader))
                         dismiss()
                     }
                     .disabled(SharedLink.parse(text) == nil)

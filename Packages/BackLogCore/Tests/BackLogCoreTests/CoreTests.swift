@@ -416,3 +416,21 @@ import Testing
         #expect(o.title == "T" && o.authorName == "A")
     }
 }
+
+@Suite struct TagsTests {
+    @Test func parsesStripsAndComposes() {
+        #expect(Tags.parse("Great one #fitness #Fitness #home-workout") == ["fitness", "home-workout"])
+        #expect(Tags.strip("Great one #fitness #home") == "Great one")
+        #expect(Tags.compose(note: "Try this", tags: ["Fitness", "#legs", "core work", "fitness"]) == "Try this #Fitness #legs #core-work")
+        #expect(Tags.compose(note: "", tags: ["a"]) == "#a")
+        #expect(Tags.parse("issue#12 is not a tag") == [])
+    }
+
+    @Test func suggestions() {
+        let recent = ["Anna · WhatsApp", "Max", "Instagram"]
+        #expect(Suggestions.rank(recent, presets: ["WhatsApp", "Messages"], typed: "") == ["Anna · WhatsApp", "Max", "Instagram", "WhatsApp", "Messages"])
+        #expect(Suggestions.rank(recent, presets: ["WhatsApp"], typed: "wh") == ["Anna · WhatsApp", "WhatsApp"])
+        #expect(Suggestions.rank(recent, typed: "an") == ["Anna · WhatsApp"])
+        #expect(Suggestions.remember("max", in: recent) == ["max", "Anna · WhatsApp", "Instagram"])
+    }
+}

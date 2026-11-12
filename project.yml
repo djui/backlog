@@ -9,7 +9,7 @@ options:
 settings:
   base:
     MARKETING_VERSION: "0.3.0"
-    CURRENT_PROJECT_VERSION: 10
+    CURRENT_PROJECT_VERSION: 11
     SWIFT_VERSION: "5.0"
     MACOSX_DEPLOYMENT_TARGET: "26.0"
     IPHONEOS_DEPLOYMENT_TARGET: "26.0"
@@ -131,6 +131,10 @@ targets:
           - "Info.plist"
           - "BackLogMobileShare.entitlements"
       - Shared/Sources/SharedInbox.swift
+      - Shared/Sources/Recents.swift
+      - Shared/Sources/TagViews.swift
+    dependencies:
+      - package: BackLogCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.djui.BackLog.Share

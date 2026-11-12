@@ -102,13 +102,7 @@ private struct ItemHeader: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(item.title).font(.title2.bold()).textSelection(.enabled)
             Text(meta).foregroundStyle(.secondary)
-            if !item.note.isEmpty || !item.sharedBy.isEmpty {
-                Text([item.sharedBy, item.note].filter { !$0.isEmpty }.joined(separator: " — "))
-                    .font(.callout)
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
-            }
+            SharedByCard(item: item)
             if !item.details.isEmpty {
                 Text(item.details)
                     .font(.callout)
@@ -397,6 +391,7 @@ struct AddLinkSheet: View {
     @Environment(AppState.self) private var app
     @State private var text = ""
     @State private var from = ""
+    @State private var tags: [String] = []
 
     var body: some View {
         let link = SharedLink.parse(text)
@@ -407,6 +402,9 @@ struct AddLinkSheet: View {
                 .textFieldStyle(.roundedBorder)
             TextField("From (optional, e.g. “Anna · WhatsApp”)", text: $from)
                 .textFieldStyle(.roundedBorder)
+            SuggestionChips(values: Suggestions.rank(Recents.from, presets: Recents.sourcePresets, typed: from, excluding: [from], limit: 8)) { from = $0 }
+            TagField(tags: $tags)
+                .textFieldStyle(.roundedBorder)
             Text(link.map { "\($0.kind.label) · \(SourceClassifier.normalizedHost($0.url))" + ($0.note.isEmpty ? "" : " · note: “\($0.note)”") } ?? " ")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
@@ -414,7 +412,10 @@ struct AddLinkSheet: View {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
                 Button("Add") {
-                    app.report(Library.add(text: text, sharedBy: from, context: context, downloader: downloader))
+                    Recents.remember(from: from)
+                    Recents.remember(tags: tags)
+                    let withTags = tags.isEmpty ? text : text + "\n" + Tags.compose(note: "", tags: tags)
+                    app.report(Library.add(text: withTags, sharedBy: from, context: context, downloader: downloader))
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)

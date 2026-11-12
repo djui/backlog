@@ -1,9 +1,11 @@
+import BackLogCore
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-/// WhatsApp, Messages, Safari… › Share › BackLog: a small sheet with the link, who it's from and a
-/// note. Saved links wait in the shared inbox until BackLog is next opened.
+/// WhatsApp, Messages, Safari… › Share › BackLog: a small sheet with the link, who it's from (with
+/// recent names and common apps to tap), tags as bubbles and a note. Saved links wait in the
+/// shared inbox until BackLog is next opened.
 final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -51,8 +53,10 @@ private struct ShareSheet: View {
     let sharedText: String
     let save: (SharedInbox.Entry) -> Void
     let cancel: () -> Void
-    @State private var from = UserDefaults(suiteName: SharedInbox.group)?.string(forKey: "lastFrom") ?? ""
+    @State private var from = ""
+    @State private var tags: [String] = []
     @State private var note = ""
+    @FocusState private var fromFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -60,9 +64,19 @@ private struct ShareSheet: View {
                 Section {
                     Text(link.isEmpty ? sharedText : link).font(.callout).lineLimit(3).foregroundStyle(.secondary)
                 }
+                Section("From") {
+                    TextField("Who or where it’s from", text: $from)
+                        .focused($fromFocused)
+                    SuggestionChips(values: Suggestions.rank(Recents.from, presets: Recents.sourcePresets, typed: from, excluding: [from], limit: 10)) {
+                        from = $0
+                        fromFocused = false
+                    }
+                }
+                Section("Tags") {
+                    TagField(tags: $tags)
+                }
                 Section {
-                    TextField("From (e.g. Anna · WhatsApp)", text: $from)
-                    TextField("Note", text: $note, axis: .vertical).lineLimit(1...3)
+                    TextField("Note", text: $note, axis: .vertical).lineLimit(1...4)
                 } footer: {
                     Text("It's in your Up Next the next time you open BackLog, and on your Mac.")
                 }
@@ -73,9 +87,10 @@ private struct ShareSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel", role: .cancel, action: cancel) }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        UserDefaults(suiteName: SharedInbox.group)?.set(from, forKey: "lastFrom")
+                        Recents.remember(from: from)
+                        Recents.remember(tags: tags)
                         let text = link.isEmpty ? sharedText : (sharedText.contains(link) ? sharedText : link + "\n" + sharedText)
-                        save(.init(text: text, from: from, note: note, date: .now))
+                        save(.init(text: text, from: from, note: Tags.compose(note: note, tags: tags), date: .now))
                     }
                     .disabled(link.isEmpty && sharedText.isEmpty)
                 }
