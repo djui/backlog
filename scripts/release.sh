@@ -7,7 +7,7 @@
 # Needs gh logged in, the Sparkle signing key (run Sparkle's generate_keys once; put the public key
 # in BackLog/Info.plist as SUPublicEDKey), a Developer ID Application certificate and a notarytool
 # keychain profile (xcrun notarytool store-credentials). NOTARY_PROFILE names the profile and
-# defaults to "murmur" (any notarytool profile for the team works). Releases are always notarized: the script stops before building otherwise.
+# defaults to "backlog"; without it, the App Store Connect API key is used. Releases are always notarized: the script stops before building otherwise.
 # The first release ships the version already in project.yml.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -18,7 +18,7 @@ case "$PART" in patch | minor | major) ;; *) echo "usage: $0 [patch|minor|major]
 
 command -v gh >/dev/null || { echo "gh is required (brew install gh)" >&2; exit 1; }
 gh auth status >/dev/null 2>&1 || { echo "gh is not authenticated; run: gh auth login" >&2; exit 1; }
-export NOTARY_PROFILE="${NOTARY_PROFILE:-murmur}"
+export NOTARY_PROFILE="${NOTARY_PROFILE:-backlog}"
 security find-identity -v -p codesigning | grep -q "Developer ID Application" \
   || { echo "No Developer ID Application certificate in the keychain; releases must be notarized" >&2; exit 1; }
 source scripts/notary.sh
