@@ -30,41 +30,52 @@ func srgb(_ r: Int, _ g: Int, _ b: Int) -> String {
     String(format: "srgb:%.5f,%.5f,%.5f,1.00000", Double(r) / 255, Double(g) / 255, Double(b) / 255)
 }
 
-/// A short stack of saved things: two cards behind, the front one with a play mark — something
-/// put aside to watch or read later.
+/// A short stack of saved things: two cards fanned behind, the front one with a play disc and two
+/// lines of text — something put aside to watch or read later. Fills most of the canvas so it reads
+/// at Dock and Home Screen sizes; the system adds the glass.
 func drawStack(in rect: CGRect) {
-    let orange = color(232, 108, 44)
-    let amber = color(244, 164, 72)
-    let sand = color(250, 214, 150)
-    let w = rect.width * 0.56, h = rect.height * 0.36, r = rect.width * 0.07
-    let cx = rect.midX
-    let cards: [(CGFloat, CGFloat, NSColor)] = [(0.66, 0.84, sand), (0.58, 0.92, amber), (0.44, 1.0, orange)]
-    for (yFrac, scale, c) in cards {
-        let cw = w * scale, ch = h * scale
-        let frame = NSRect(x: cx - cw / 2, y: rect.height * yFrac - ch / 2, width: cw, height: ch)
-        c.setFill()
-        NSBezierPath(roundedRect: frame, xRadius: r * scale, yRadius: r * scale).fill()
+    let W = rect.width
+    func card(_ frame: NSRect, radius: CGFloat, top: NSColor, bottom: NSColor, angle: CGFloat) {
+        NSGraphicsContext.saveGraphicsState()
+        let t = NSAffineTransform()
+        t.translateX(by: frame.midX, yBy: frame.midY)
+        t.rotate(byDegrees: angle)
+        t.translateX(by: -frame.midX, yBy: -frame.midY)
+        t.concat()
+        let path = NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius)
+        NSGradient(starting: top, ending: bottom)!.draw(in: path, angle: -90)
+        NSGraphicsContext.restoreGraphicsState()
     }
-    // The front card: a play disc and two lines of text — something to watch or read.
-    let front = NSRect(x: cx - w / 2, y: rect.height * 0.44 - h / 2, width: w, height: h)
-    let d = h * 0.46
+    let w = W * 0.70, h = W * 0.46, r = W * 0.085
+    let cx = rect.midX
+    // Back cards, fanned.
+    card(NSRect(x: cx - w * 0.44, y: W * 0.50, width: w * 0.88, height: h * 0.88), radius: r * 0.9,
+         top: color(255, 222, 160), bottom: color(250, 196, 120), angle: 7)
+    card(NSRect(x: cx - w * 0.47, y: W * 0.43, width: w * 0.94, height: h * 0.94), radius: r * 0.95,
+         top: color(255, 178, 92), bottom: color(244, 142, 60), angle: -4)
+    // Front card.
+    let front = NSRect(x: cx - w / 2, y: W * 0.20, width: w, height: h)
+    card(front, radius: r, top: color(245, 120, 54), bottom: color(214, 76, 30), angle: 0)
+
+    let d = h * 0.48
     let disc = NSRect(x: front.minX + w * 0.11, y: front.midY - d / 2, width: d, height: d)
     NSColor.white.setFill()
     NSBezierPath(ovalIn: disc).fill()
+    let t = d * 0.36
     let tri = NSBezierPath()
-    let t = d * 0.34
-    tri.move(to: CGPoint(x: disc.midX - t * 0.45, y: disc.midY + t * 0.6))
-    tri.line(to: CGPoint(x: disc.midX + t * 0.65, y: disc.midY))
-    tri.line(to: CGPoint(x: disc.midX - t * 0.45, y: disc.midY - t * 0.6))
+    tri.move(to: CGPoint(x: disc.midX - t * 0.42, y: disc.midY + t * 0.62))
+    tri.line(to: CGPoint(x: disc.midX + t * 0.68, y: disc.midY))
+    tri.line(to: CGPoint(x: disc.midX - t * 0.42, y: disc.midY - t * 0.62))
     tri.close()
-    orange.setFill()
+    color(220, 82, 34).setFill()
     tri.fill()
-    let lineH = h * 0.11
+    let lineH = h * 0.12
     let lineX = disc.maxX + w * 0.08
-    NSColor.white.withAlphaComponent(0.95).setFill()
-    NSBezierPath(roundedRect: NSRect(x: lineX, y: front.midY + lineH * 0.6, width: front.maxX - w * 0.1 - lineX, height: lineH), xRadius: lineH / 2, yRadius: lineH / 2).fill()
-    NSColor.white.withAlphaComponent(0.7).setFill()
-    NSBezierPath(roundedRect: NSRect(x: lineX, y: front.midY - lineH * 1.6, width: (front.maxX - w * 0.1 - lineX) * 0.65, height: lineH), xRadius: lineH / 2, yRadius: lineH / 2).fill()
+    let lineW = front.maxX - w * 0.1 - lineX
+    NSColor.white.setFill()
+    NSBezierPath(roundedRect: NSRect(x: lineX, y: front.midY + lineH * 0.55, width: lineW, height: lineH), xRadius: lineH / 2, yRadius: lineH / 2).fill()
+    NSColor.white.withAlphaComponent(0.72).setFill()
+    NSBezierPath(roundedRect: NSRect(x: lineX, y: front.midY - lineH * 1.55, width: lineW * 0.62, height: lineH), xRadius: lineH / 2, yRadius: lineH / 2).fill()
 }
 
 let iconFile = root.appendingPathComponent("Shared/AppIcon.icon")
@@ -74,8 +85,8 @@ try png(size: 1024) { drawStack(in: $0) }.write(to: iconFile.appendingPathCompon
 
 let icon: [String: Any] = [
     "fill-specializations": [
-        ["value": ["linear-gradient": [srgb(255, 250, 244), srgb(246, 234, 220)]]],
-        ["appearance": "dark", "value": ["linear-gradient": [srgb(44, 46, 56), srgb(18, 18, 24)]]],
+        ["value": ["linear-gradient": [srgb(255, 248, 238), srgb(250, 226, 200)]]],
+        ["appearance": "dark", "value": ["linear-gradient": [srgb(48, 38, 36), srgb(20, 16, 16)]]],
     ],
     "groups": [[
         "layers": [[
@@ -89,4 +100,12 @@ let icon: [String: Any] = [
 ]
 try JSONSerialization.data(withJSONObject: icon, options: [.prettyPrinted, .sortedKeys])
     .write(to: iconFile.appendingPathComponent("icon.json"))
-print("Wrote \(iconFile.path)")
+for (name, top, bottom) in [("icon-light", color(255, 248, 238), color(250, 226, 200)), ("icon-dark", color(48, 38, 36), color(20, 16, 16))] {
+    let data = png(size: 1024) { rect in
+        let path = NSBezierPath(roundedRect: rect, xRadius: rect.width * 0.225, yRadius: rect.width * 0.225)
+        NSGradient(starting: top, ending: bottom)!.draw(in: path, angle: -90)
+        drawStack(in: rect)
+    }
+    try data.write(to: root.appendingPathComponent("site/assets/\(name).png"))
+}
+print("Wrote \(iconFile.path) and site/assets/icon-*.png")
