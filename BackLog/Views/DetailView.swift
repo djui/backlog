@@ -154,7 +154,7 @@ struct ItemActions: View {
             if item.state.isFinished {
                 action("Back to Up Next", "arrow.uturn.backward", compact) { item.state = .queued; try? context.save() }
             } else {
-                action(item.kind.isPlayable ? "Mark as Watched" : "Mark as Read", "checkmark", compact) { Library.finish(item, context: context) }
+                action("Mark as \(item.kind.doneLabel)", "checkmark", compact) { Library.finish(item, context: context) }
                     .buttonStyle(.borderedProminent)
                 action("Skip", "forward", compact) { Library.finish(item, as: .skipped, context: context) }
             }

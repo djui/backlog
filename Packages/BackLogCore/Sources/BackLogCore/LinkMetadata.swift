@@ -55,8 +55,13 @@ public struct LinkMetadata: Equatable, Sendable {
         if let video = meta["og:video:secure_url"] ?? meta["og:video"] ?? meta["og:video:url"] {
             m.videoURL = URL(string: video, relativeTo: baseURL)?.absoluteURL
         }
-        if let d = meta["og:video:duration"] ?? meta["video:duration"], let seconds = Double(d) { m.durationSeconds = seconds }
-        if let published = meta["article:published_time"] ?? meta["og:published_time"] ?? meta["date"] {
+        if let d = meta["og:video:duration"] ?? meta["video:duration"] ?? meta["music:duration"], let seconds = Double(d) { m.durationSeconds = seconds }
+        // Spotify: og:description is "Show · Episode"; the plain description has the summary.
+        if meta["og:site_name"] == "Spotify", let og = meta["og:description"], og.contains(" · ") {
+            m.author = og.components(separatedBy: " · ").first
+            m.description = meta["description"]
+        }
+        if let published = meta["article:published_time"] ?? meta["og:published_time"] ?? meta["music:release_date"] ?? meta["date"] {
             m.publishedAt = ISO8601DateFormatter().date(from: published) ?? {
                 let f = ISO8601DateFormatter()
                 f.formatOptions = [.withFullDate]

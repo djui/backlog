@@ -73,6 +73,23 @@ enum Library {
     /// Fixes placeholder titles of items saved before titles were made from captions.
     static func improveTitles(context: ModelContext) {
         let items = (try? context.fetch(FetchDescriptor<Item>())) ?? []
+        // Links saved before BackLog knew their kind (Spotify was "Article"): reclassify and
+        // fetch their details again.
+        // Notes saved with the shared link repeated in them.
+        for item in items where item.note.contains("http") {
+            item.note = item.note.replacingOccurrences(of: #"https?://\S+"#, with: "", options: .regularExpression)
+                .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces)
+        }
+        for item in items where item.kind == .article || item.kind == .link {
+            guard let url = item.url else { continue }
+            let kind = SourceClassifier.kind(for: url)
+            if kind != item.kind, kind == .podcast || kind == .music {
+                item.kindRaw = kind.rawValue
+                item.capturedAt = nil
+                if CaptionTitle.isGeneric(item.title, author: item.author, url: item.urlString) || item.title == "Spotify" { item.title = item.urlString }
+            }
+        }
         for item in items where item.capturedAt != nil { improveTitle(item) }
         try? context.save()
     }

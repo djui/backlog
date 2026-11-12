@@ -98,7 +98,7 @@ final class Downloader {
                 // On iPhone, videos open in their own apps; their details come from the page.
                 try await capturePage(item, url: url, files: files)
                 #endif
-            case .article, .thread, .link:
+            case .article, .thread, .link, .podcast, .music:
                 try await capturePage(item, url: url, files: files)
             }
         } catch is CancellationError {
@@ -180,6 +180,11 @@ final class Downloader {
         if let a = meta.author, !a.isEmpty, !isThread { item.author = a }
         if let p = meta.publishedAt { item.publishedAt = p }
         if let d = meta.durationSeconds, item.durationSeconds == 0 { item.durationSeconds = d }
+        // A shared start time (Spotify's and YouTube's t=) is where listening picks up.
+        if item.position == 0, let t = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "t" })?.value,
+           let seconds = Double(t.trimmingCharacters(in: CharacterSet(charactersIn: "s"))) {
+            item.position = seconds
+        }
         // Instagram's page title is `Name on Instagram: "caption"`.
         if let t = meta.title, let caption = CaptionTitle.instagramCaption(fromPageTitle: t) {
             if item.details.isEmpty || item.details == meta.description { item.details = caption }

@@ -201,7 +201,7 @@ struct MobileThumbnail: View {
     private var placeholder: some View {
         ZStack {
             Rectangle().fill(.quaternary)
-            Image(systemName: item.kind.isPlayable ? "play.rectangle" : "doc.text").foregroundStyle(.secondary)
+            Image(systemName: item.kind.symbol).foregroundStyle(.secondary)
         }
     }
 }
@@ -225,7 +225,7 @@ struct MobileDetail: View {
                         .frame(maxWidth: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         .overlay {
-                            Image(systemName: item.kind.isPlayable ? "play.fill" : "book")
+                            Image(systemName: primarySymbol)
                                 .font(.title)
                                 .foregroundStyle(.white)
                                 .padding(20)
@@ -283,7 +283,7 @@ struct MobileDetail: View {
                 if item.state.isFinished {
                     Button("Back to Up Next") { item.state = .queued; try? context.save() }
                 } else {
-                    Button(item.kind.isPlayable ? "Watched" : "Read", systemImage: "checkmark") { finish(.done) }
+                    Button(item.kind.doneLabel, systemImage: "checkmark") { finish(.done) }
                     Button("Skip", systemImage: "forward") { finish(.skipped) }
                 }
                 Spacer()
@@ -297,15 +297,27 @@ struct MobileDetail: View {
         .fullScreenCover(isPresented: $showReader) { MobileReader(item: item) }
     }
 
+    private var primarySymbol: String {
+        if ItemFiles(id: item.id).hasArticle { return "book" }
+        switch item.kind {
+        case .video, .reel: return "play.fill"
+        case .podcast: return "headphones"
+        case .music: return "music.note"
+        default: return "safari"
+        }
+    }
+
     private var primaryLabel: String {
         if ItemFiles(id: item.id).hasArticle { return "Read" }
-        return item.kind.isPlayable ? "Watch in \(item.siteName.isEmpty ? "the app" : item.siteName)" : "Open"
+        return item.kind.isTimed ? "\(item.kind.openVerb) in \(item.siteName.isEmpty ? "the app" : item.siteName)" : "Open"
     }
 
     private func primaryAction() {
         if ItemFiles(id: item.id).hasArticle { showReader = true; return }
         guard let url = item.url else { return }
-        if item.kind.isPlayable { openURL(timestampURL(item.position) ?? url) } else { present(url) }
+        if item.kind.isPlayable { openURL(timestampURL(item.position) ?? url) }
+        else if item.kind.isTimed { openURL(url) }  // Spotify, Apple Podcasts…: their own app, at the shared time.
+        else { present(url) }
     }
 
     /// YouTube links that start at a moment (opens the YouTube app there).
@@ -330,6 +342,7 @@ struct MobileDetail: View {
         var parts = [item.kind.label]
         if !item.author.isEmpty { parts.append(item.author) }
         if !item.durationText.isEmpty { parts.append(item.durationText) }
+        if item.kind == .podcast, item.position > 0 { parts.append("from \(Transcript.clock(item.position))") }
         parts.append("added " + item.addedAt.formatted(.relative(presentation: .named)))
         return parts.joined(separator: " · ")
     }

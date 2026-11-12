@@ -225,15 +225,7 @@ struct Thumbnail: View {
         }
     }
 
-    private var symbol: String {
-        switch item.kind {
-        case .video: "play.rectangle"
-        case .reel: "rectangle.portrait"
-        case .article: "doc.text"
-        case .thread: "bubble.left.and.bubble.right"
-        case .link: "link"
-        }
-    }
+    private var symbol: String { item.kind.symbol }
 }
 
 /// Length filter and sort order, one menu in the toolbar. Filled icon while filtering.

@@ -359,3 +359,31 @@ import Testing
         #expect(longest == [4, 2, 3, 1])
     }
 }
+
+@Suite struct SpotifyTests {
+    @Test func classifiesAndCanonicalizes() {
+        let url = URL(string: "https://open.spotify.com/episode/0jZjDghybB9p3QnZVXIhgq?si=-Afh&utm_source=native-share-menu&t=5726&pi=i9SS")!
+        #expect(SourceClassifier.kind(for: url) == .podcast)
+        #expect(SourceClassifier.kind(for: URL(string: "https://open.spotify.com/track/abc")!) == .music)
+        #expect(SourceClassifier.canonical(url).absoluteString == "https://open.spotify.com/episode/0jZjDghybB9p3QnZVXIhgq?t=5726")
+    }
+
+    @Test func parsesEpisodePage() {
+        let html = """
+        <head><meta property="og:site_name" content="Spotify"><meta name="description" content="Listen to this episode from The Joe Rogan Experience on Spotify. Jimmy Carr is a comedian.">
+        <meta name="music:duration" content="10235"><meta name="music:release_date" content="2026-10-28T19:00:00Z">
+        <meta property="og:title" content="#2571 - Jimmy Carr"><meta property="og:description" content="The Joe Rogan Experience · Episode"></head>
+        """
+        let m = LinkMetadata.parse(html: html, baseURL: URL(string: "https://open.spotify.com/episode/x")!)
+        #expect(m.title == "#2571 - Jimmy Carr")
+        #expect(m.author == "The Joe Rogan Experience")
+        #expect(m.durationSeconds == 10235)
+        #expect(m.publishedAt != nil)
+        #expect(m.description?.hasPrefix("Listen to this episode") == true)
+    }
+
+    @Test func noteDropsRepeatedLink() throws {
+        let link = try #require(SharedLink.parse("https://open.spotify.com/episode/x\nhttps://open.spotify.com/episode/x?si=1 Maybe good life advice"))
+        #expect(link.note == "Maybe good life advice")
+    }
+}

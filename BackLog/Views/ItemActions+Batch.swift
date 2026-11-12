@@ -65,8 +65,8 @@ struct ItemContextMenu: View {
     private func label(_ command: ItemCommand, many: Bool) -> String {
         switch command {
         case .markDone:
-            let playable = items.allSatisfy(\.kind.isPlayable), readable = items.allSatisfy { !$0.kind.isPlayable }
-            return playable ? "Mark as Watched" : readable ? "Mark as Read" : "Mark as Done"
+            let labels = Set(items.map(\.kind.doneLabel))
+            return "Mark as \(labels.count == 1 ? labels.first! : "Done")"
         case .toggleStar: return items.allSatisfy(\.starred) ? "Unstar" : "Star"
         case .openOriginal: return many ? "Open Originals" : "Open Original"
         case .copyLink: return many ? "Copy Links" : "Copy Link"

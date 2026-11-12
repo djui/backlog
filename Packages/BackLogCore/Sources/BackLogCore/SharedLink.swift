@@ -15,8 +15,12 @@ public struct SharedLink: Equatable, Sendable {
         let range = NSRange(trimmed.startIndex..., in: trimmed)
         for match in detector.matches(in: trimmed, range: range) {
             guard let url = match.url, let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else { continue }
+            // The note is the text around the link — without any link, including the same link
+            // shared twice (apps often send it as both a URL and text).
             var note = trimmed
-            if let r = Range(match.range, in: trimmed) { note.removeSubrange(r) }
+            for other in detector.matches(in: trimmed, range: range).reversed() {
+                if let r = Range(other.range, in: note) { note.removeSubrange(r) }
+            }
             note = note.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }.joined(separator: " ")
             return SharedLink(url: url, kind: SourceClassifier.kind(for: url), note: note)
