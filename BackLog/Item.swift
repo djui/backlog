@@ -25,6 +25,17 @@ final class Item {
     var sortIndex: Double = 0
     /// `Summary` as JSON; empty until summarized.
     var summaryJSON: String = ""
+    /// The page's or video's own description (a reel's caption, an article's excerpt).
+    var details: String = ""
+    var siteName: String = ""
+    var publishedAt: Date?
+    /// Text read from the preview image, and what's in it ("pasta, bowl, food").
+    var imageText: String = ""
+    var imageLabels: String = ""
+    /// When the link's details were last fetched; nil until then.
+    var capturedAt: Date?
+    /// Everything searchable, lower-cased: title, author, details, note, image, summary, transcript start.
+    var searchText: String = ""
 
     init(url: URL, kind: MediaKind, note: String = "", sortIndex: Double) {
         id = UUID()
@@ -40,6 +51,17 @@ final class Item {
 
     var summary: Summary? { Summary(json: summaryJSON) }
 
+    /// The text that describes this item, for search and embeddings (without the full transcript).
+    var describingText: String {
+        var parts = [title, author, siteName, details, note, sharedBy, imageLabels, imageText]
+        if let s = summary { parts.append(s.takeaway); parts += s.keyPoints.map(\.text) }
+        return parts.filter { !$0.isEmpty }.joined(separator: "\n")
+    }
+
+    func rebuildSearchText(extra: String = "") {
+        searchText = (describingText + "\n" + urlString + "\n" + extra).lowercased()
+    }
+
     var kind: MediaKind { MediaKind(rawValue: kindRaw) ?? .link }
     var url: URL? { URL(string: urlString) }
 
@@ -51,8 +73,10 @@ final class Item {
         }
     }
 
+    /// "12:34" for videos, "12 min read" for pages.
     var durationText: String {
         guard durationSeconds > 0 else { return "" }
+        if !kind.isPlayable { return "\(max(1, Int((durationSeconds / 60).rounded()))) min read" }
         let total = Int(durationSeconds.rounded())
         let (h, m, s) = (total / 3600, total / 60 % 60, total % 60)
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)

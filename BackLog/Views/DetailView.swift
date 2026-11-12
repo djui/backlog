@@ -18,48 +18,65 @@ struct DetailView: View {
 
     var body: some View {
         let status = downloader.status(of: item)
-        let media = ItemFiles(id: item.id).media
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Group {
-                    if let media, !status.isActive {
-                        PlayerSurface(player: player.player)
-                            .onAppear { player.load(item, file: media, context: context) }
-                            .onDisappear { player.unload() }
-                    } else {
-                        Thumbnail(item: item)
-                            .overlay {
-                                if item.kind.isPlayable {
-                                    VStack(spacing: 8) {
-                                        StatusLine(item: item, status: status)
-                                        if case .failed = status { Button("Try Again") { downloader.enqueue(item) } }
-                                        else if !status.isActive { Button("Download") { downloader.enqueue(item) } }
-                                    }
-                                    .padding(12)
-                                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
-                                }
-                            }
-                    }
+        let files = ItemFiles(id: item.id)
+        let media = files.media
+        Group {
+            if files.hasArticle {
+                VStack(spacing: 0) {
+                    ReaderSurface(files: files, title: item.title, byline: [item.author, item.siteName].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .id(item.id)
+                    Divider()
+                    VStack(alignment: .leading, spacing: 8) { ItemActions(item: item, media: nil) }
+                        .padding(.horizontal, 20).padding(.vertical, 12)
                 }
-                .aspectRatio(16 / 9, contentMode: .fit)
-                .frame(maxWidth: .infinity)
-                .background(.black)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            } else {
+                ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Group {
+                        if let media, !status.isActive {
+                            PlayerSurface(player: player.player)
+                                .onAppear { player.load(item, file: media, context: context) }
+                                .onDisappear { player.unload() }
+                        } else {
+                            Thumbnail(item: item)
+                                .overlay {
+                                    if item.kind.isPlayable {
+                                        VStack(spacing: 8) {
+                                            StatusLine(item: item, status: status)
+                                            if case .failed = status { Button("Try Again") { downloader.enqueue(item) } }
+                                            else if !status.isActive { Button("Download") { downloader.enqueue(item) } }
+                                        }
+                                        .padding(12)
+                                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+                                    }
+                                }
+                        }
+                    }
+                    .aspectRatio(16 / 9, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .background(.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                ItemHeader(item: item, media: media)
+                    ItemHeader(item: item, media: media)
+                }
+                .padding(20)
+
+                }
             }
-            .padding(20)
         }
         .inspector(isPresented: $showPanel) {
             VStack(spacing: 0) {
-                Picker("Panel", selection: $tab) {
-                    ForEach(DetailTab.allCases) { Text($0.rawValue).tag($0) }
+                let hasTranscript = !files.subtitles.isEmpty
+                if hasTranscript {
+                    Picker("Panel", selection: $tab) {
+                        ForEach(DetailTab.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .padding(12)
+                    Divider()
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .padding(12)
-                Divider()
-                switch tab {
+                switch hasTranscript ? tab : .summary {
                 case .summary: SummaryPanel(item: item) { player.seek(to: $0) }
                 case .transcript: TranscriptPanel(item: item, player: player)
                 }
@@ -79,7 +96,7 @@ struct DetailView: View {
 private struct ItemHeader: View {
     @Bindable var item: Item
     let media: URL?
-    @Environment(\.modelContext) private var context
+    @State private var showAllDetails = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -92,7 +109,38 @@ private struct ItemHeader: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
             }
+            if !item.details.isEmpty {
+                Text(item.details)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(showAllDetails ? nil : 4)
+                    .textSelection(.enabled)
+                    .onTapGesture { showAllDetails.toggle() }
+            }
+            if !item.imageLabels.isEmpty {
+                Text("In the picture: \(item.imageLabels)").font(.caption).foregroundStyle(.tertiary)
+            }
         }
+        ItemActions(item: item, media: media)
+    }
+
+    private var meta: String {
+        var parts = [item.kind.label]
+        if !item.siteName.isEmpty, item.siteName.lowercased() != item.author.lowercased() { parts.append(item.siteName) }
+        if !item.author.isEmpty { parts.append(item.author) }
+        if !item.durationText.isEmpty { parts.append(item.durationText) }
+        if let p = item.publishedAt { parts.append(p.formatted(date: .abbreviated, time: .omitted)) }
+        parts.append("added " + item.addedAt.formatted(.relative(presentation: .named)))
+        return parts.joined(separator: " · ")
+    }
+}
+
+struct ItemActions: View {
+    @Bindable var item: Item
+    let media: URL?
+    @Environment(\.modelContext) private var context
+
+    var body: some View {
         HStack {
             if item.state.isFinished {
                 Button("Back to Up Next") { item.state = .queued; try? context.save() }
@@ -105,14 +153,6 @@ private struct ItemHeader: View {
             if let url = item.url { Button("Open Original") { NSWorkspace.shared.open(url) } }
             if let media { Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([media]) } }
         }
-    }
-
-    private var meta: String {
-        var parts = [item.kind.label]
-        if !item.author.isEmpty { parts.append(item.author) }
-        if !item.durationText.isEmpty { parts.append(item.durationText) }
-        parts.append("added " + item.addedAt.formatted(.relative(presentation: .named)))
-        return parts.joined(separator: " · ")
     }
 }
 

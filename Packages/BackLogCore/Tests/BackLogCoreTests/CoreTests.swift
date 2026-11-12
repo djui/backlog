@@ -134,3 +134,43 @@ import Testing
         #expect(Summary(json: "") == nil)
     }
 }
+
+@Suite struct LinkMetadataTests {
+    @Test func parsesOpenGraph() {
+        let html = """
+        <html><head><title>Fallback &amp; title</title>
+        <meta property="og:title" content="Crispy chickpeas in 20 minutes">
+        <meta content="Roast them hot &amp; fast. #recipe" property="og:description" />
+        <meta property='og:image' content='/img/a.jpg'>
+        <meta property="og:site_name" content="Instagram">
+        <meta name="author" content="chef.anna">
+        <meta property="article:published_time" content="2025-03-01T10:00:00Z">
+        </head><body><meta property="og:title" content="ignored"></body></html>
+        """
+        let m = LinkMetadata.parse(html: html, baseURL: URL(string: "https://www.instagram.com/reel/X/")!)
+        #expect(m.title == "Crispy chickpeas in 20 minutes")
+        #expect(m.description == "Roast them hot & fast. #recipe")
+        #expect(m.imageURL?.absoluteString == "https://www.instagram.com/img/a.jpg")
+        #expect(m.siteName == "Instagram")
+        #expect(m.author == "chef.anna")
+        #expect(m.publishedAt != nil)
+    }
+
+    @Test func fallsBackToTitleTag() {
+        let m = LinkMetadata.parse(html: "<head><title> A &#8211; B </title></head>", baseURL: URL(string: "https://a.b")!)
+        #expect(m.title == "A – B")
+    }
+
+    @Test func hackerNewsID() {
+        #expect(HackerNews.itemID(from: URL(string: "https://news.ycombinator.com/item?id=123")!) == 123)
+        #expect(HackerNews.itemID(from: URL(string: "https://example.com/item?id=123")!) == nil)
+    }
+}
+
+@Suite struct MarkdownTests {
+    @Test func convertsArticleHTML() {
+        let html = #"<h1>Title</h1><p>Some <strong>bold</strong> and <a href="https://x.y">a link</a>.</p><ul><li>One</li><li>Two</li></ul><img src="p.jpg" alt="Pic"><script>bad()</script>"#
+        let md = MarkdownConverter.markdown(fromHTML: html)
+        #expect(md == "# Title\n\nSome **bold** and [a link](https://x.y).\n\n- One\n- Two\n\n![Pic](p.jpg)\n")
+    }
+}

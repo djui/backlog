@@ -197,8 +197,10 @@ struct StatusLine: View {
                     .font(.caption).foregroundStyle(.secondary)
             } else if ItemFiles(id: item.id).media != nil {
                 Label("Offline", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.green)
+            } else if ItemFiles(id: item.id).hasArticle {
+                Label("Saved to read offline", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.green)
             } else if !item.kind.isPlayable {
-                Text("Link").font(.caption).foregroundStyle(.secondary)
+                Text(item.capturedAt == nil ? "Reading details…" : "Link").font(.caption).foregroundStyle(.secondary)
             }
         }
     }

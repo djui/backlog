@@ -8,6 +8,7 @@ struct BackLogApp: App {
     let container: ModelContainer
     @State private var downloader: Downloader
     @State private var summarizer: Summarizer
+    @State private var search = SearchIndex()
     @State private var app = AppState()
 
     init() {
@@ -21,6 +22,13 @@ struct BackLogApp: App {
         let downloader = Downloader(container: container)
         let summarizer = Summarizer(container: container)
         downloader.onFinished = { summarizer.summarize($0) }
+        let search = SearchIndex()
+        downloader.search = search
+        summarizer.onSummarized = { item in
+            item.rebuildSearchText(extra: SearchIndex.extraText(for: item))
+            search.index(item)
+        }
+        _search = State(initialValue: search)
         _downloader = State(initialValue: downloader)
         _summarizer = State(initialValue: summarizer)
     }
@@ -31,8 +39,10 @@ struct BackLogApp: App {
                 .environment(downloader)
                 .environment(app)
                 .environment(summarizer)
+                .environment(search)
                 .frame(minWidth: 960, minHeight: 600)
                 .task {
+                    backfillSearch()
                     downloader.resumePending(in: container.mainContext)
                     summarizer.summarizeMissing()
                     await summarizer.watchAvailability()
@@ -48,6 +58,10 @@ struct BackLogApp: App {
                 Button("Add Link from Clipboard") { addFromClipboard() }
                     .keyboardShortcut("v", modifiers: [.command, .shift])
             }
+            CommandGroup(after: .textEditing) {
+                Button("Search Library") { app.focusSearch = true }
+                    .keyboardShortcut("f")
+            }
         }
     }
 
@@ -61,6 +75,16 @@ struct BackLogApp: App {
         app.report(result)
     }
 
+    /// Items saved before search existed (or before a field was added) get their search text and vectors.
+    private func backfillSearch() {
+        let items = (try? container.mainContext.fetch(FetchDescriptor<Item>())) ?? []
+        for item in items where item.searchText.isEmpty {
+            item.rebuildSearchText(extra: SearchIndex.extraText(for: item))
+        }
+        try? container.mainContext.save()
+        search.indexMissing(items)
+    }
+
     private func addFromClipboard() {
         let text = NSPasteboard.general.string(forType: .string) ?? ""
         app.report(Library.add(text: text, context: container.mainContext, downloader: downloader))
@@ -71,6 +95,8 @@ struct BackLogApp: App {
 @MainActor @Observable
 final class AppState {
     var showAddSheet = false
+    var searchText = ""
+    var focusSearch = false
     var selection: UUID?
     var toast: String?
 

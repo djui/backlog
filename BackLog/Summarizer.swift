@@ -36,6 +36,25 @@ final class Summarizer {
     @ObservationIgnored private let container: ModelContainer
     @ObservationIgnored private var queue: [UUID] = []
     @ObservationIgnored private var busy = false
+    @ObservationIgnored var onSummarized: ((Item) -> Void)?
+
+    /// What to summarize: the transcript (with timestamps) or the saved article text.
+    struct Source {
+        var lines: [TranscriptLine]
+        var timed: Bool
+    }
+
+    static func source(for item: Item) -> Source? {
+        let files = ItemFiles(id: item.id)
+        let transcript = files.transcript
+        if !transcript.isEmpty { return Source(lines: transcript, timed: true) }
+        if let text = files.articleText, text.count > 800 {
+            // Paragraphs as untimed lines, so the same chunking applies.
+            let paragraphs = text.components(separatedBy: "\n\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            return Source(lines: paragraphs.enumerated().map { TranscriptLine(start: Double($0.offset) * 31, text: $0.element) }, timed: false)
+        }
+        return nil
+    }
 
     init(container: ModelContainer) { self.container = container }
 
@@ -58,7 +77,7 @@ final class Summarizer {
             if let reason = Self.unavailableReason { status[item.id] = .failed(reason) }
             return
         }
-        guard !ItemFiles(id: item.id).transcript.isEmpty else { return }
+        guard Self.source(for: item) != nil else { return }
         queue.append(item.id)
         status[item.id] = .working("Waiting…")
         Task { await drain() }
@@ -93,9 +112,11 @@ final class Summarizer {
             let items = (try? container.mainContext.fetch(FetchDescriptor<Item>(predicate: #Predicate { $0.id == id }))) ?? []
             guard let item = items.first else { status[id] = nil; continue }
             do {
-                let summary = try await summarize(lines: ItemFiles(id: id).transcript, title: item.title, id: id)
+                guard let source = Self.source(for: item) else { status[id] = nil; continue }
+                let summary = try await summarize(source, title: item.title, kind: item.kind, id: id)
                 item.summaryJSON = summary.json
                 try? container.mainContext.save()
+                onSummarized?(item)
                 status[id] = .idle
             } catch {
                 status[id] = .failed(Self.describe(error))
@@ -103,38 +124,44 @@ final class Summarizer {
         }
     }
 
-    private func summarize(lines: [TranscriptLine], title: String, id: UUID) async throws -> Summary {
+    private func summarize(_ source: Source, title: String, kind: MediaKind, id: UUID) async throws -> Summary {
+        let lines = source.lines
+        let noun = kind.isPlayable ? "video" : "article"
         let model = SystemLanguageModel.default
         // ~3.5 characters per token; leave room for instructions and the answer.
         let budget = max(2000, Int(Double(model.contextSize) * 3.5 * 0.55))
         let chunks = Transcript.chunks(lines, maxCharacters: budget)
         let instructions = """
-        You take notes on videos so someone can decide whether to watch them, or skip them and still \
-        know what was said. Be specific and factual. Write in the language of the transcript.
+        You take notes on \(noun)s so someone can decide whether to \(kind.isPlayable ? "watch" : "read") them, or skip \
+        them and still know what was said. Be specific and factual. Write in the language of the source.
         """
         var notes: [SummaryPoint] = []
         for (i, chunk) in chunks.enumerated() {
             status[id] = .working(chunks.count > 1 ? "Reading part \(i + 1) of \(chunks.count)…" : "Summarizing…")
             let session = LanguageModelSession(model: model, instructions: instructions)
             let response = try await session.respond(
-                to: "Video: \(title)\nTranscript part \(i + 1) of \(chunks.count):\n\(chunk)",
+                to: "\(noun.capitalized): \(title)\n\(source.timed ? "Transcript" : "Text") part \(i + 1) of \(chunks.count):\n\(source.timed ? chunk : Self.stripMarkers(chunk))",
                 generating: GeneratedNotes.self)
-            notes += response.content.points.map { SummaryPoint(seconds: Double($0.seconds), text: $0.text) }
+            notes += response.content.points.map { SummaryPoint(seconds: source.timed ? Double($0.seconds) : nil, text: $0.text) }
         }
         notes.sort { ($0.seconds ?? 0) < ($1.seconds ?? 0) }
 
         status[id] = .working("Writing the takeaway…")
-        var noteText = notes.map { "[\(Transcript.clock($0.seconds ?? 0))] \($0.text)" }.joined(separator: "\n")
+        var noteText = notes.map { ($0.seconds.map { "[\(Transcript.clock($0))] " } ?? "- ") + $0.text }.joined(separator: "\n")
         if noteText.count > budget { noteText = String(noteText.prefix(budget)) }
         let session = LanguageModelSession(model: model, instructions: instructions)
         let final = try await session.respond(
-            to: "Video: \(title)\nNotes taken while watching:\n\(noteText)",
+            to: "\(noun.capitalized): \(title)\nNotes:\n\(noteText)",
             generating: GeneratedSummary.self).content
-        let minutes = (lines.last?.start ?? 0) / 60
+        let minutes = source.timed ? (lines.last?.start ?? 0) / 60 : MarkdownConverter.readingMinutes(lines.map(\.text).joined(separator: " "))
         return Summary(takeaway: final.takeaway,
-                       keyPoints: final.keyPoints.map { SummaryPoint(seconds: Double($0.seconds), text: $0.text) },
+                       keyPoints: final.keyPoints.map { SummaryPoint(seconds: source.timed ? Double($0.seconds) : nil, text: $0.text) },
                        allPoints: notes,
                        sourceMinutes: minutes > 0 ? minutes : nil)
+    }
+
+    static func stripMarkers(_ chunk: String) -> String {
+        chunk.replacingOccurrences(of: #"(?m)^\[[0-9:]+\] "#, with: "", options: .regularExpression)
     }
 
     private static func describe(_ error: Error) -> String {

@@ -51,6 +51,8 @@ public struct YTDLPMetadata: Decodable, Equatable, Sendable {
     public var description: String?
     public var chapters: [Chapter]?
     public var language: String?
+    /// The site, as yt-dlp names it ("Youtube", "Instagram").
+    public var extractor: String?
 
     public struct Chapter: Decodable, Equatable, Sendable {
         public var title: String
@@ -60,6 +62,7 @@ public struct YTDLPMetadata: Decodable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id, title, uploader, channel, duration, thumbnail, description, chapters, language
+        case extractor = "extractor_key"
         case webpageURL = "webpage_url", uploadDate = "upload_date"
     }
 

@@ -13,7 +13,7 @@ history of what you've consumed.
 
 ## Status
 
-Early. M1: add links, download, play, history. M2: transcripts, on-device summaries (TL;DR → detailed), Skim mode.
+Early. M1: add links, download, play, history. M2: transcripts, on-device summaries (TL;DR → detailed), Skim mode. M3: any link (articles saved offline with Readability, reels, Hacker News), preview images read with Vision, search by words and meaning (⌘F).
 
 ## Build
 

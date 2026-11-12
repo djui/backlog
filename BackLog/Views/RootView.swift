@@ -31,6 +31,7 @@ struct RootView: View {
     @Environment(AppState.self) private var app
     @Query(sort: \Item.sortIndex) private var items: [Item]
     @State private var section: LibrarySection? = .upNext
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         @Bindable var app = app
@@ -48,7 +49,9 @@ struct RootView: View {
             .safeAreaInset(edge: .bottom) { StorageFooter(items: items) }
         } content: {
             Group {
-                if section == .skim {
+                if !app.searchText.isEmpty {
+                    SearchResultsView(query: app.searchText, items: items, selection: $app.selection)
+                } else if section == .skim {
                     SkimView(items: items, selection: $app.selection, section: $section)
                 } else {
                     ItemListView(section: section ?? .upNext, items: items, selection: $app.selection)
@@ -68,6 +71,11 @@ struct RootView: View {
                 Button { app.showAddSheet = true } label: { Label("Add Link", systemImage: "plus") }
                     .help("Add a link (⌘N)")
             }
+        }
+        .searchable(text: $app.searchText, placement: .toolbar, prompt: "Search titles, captions, pictures, transcripts…")
+        .searchFocused($searchFocused)
+        .onChange(of: app.focusSearch) { _, focus in
+            if focus { searchFocused = true; app.focusSearch = false }
         }
         .sheet(isPresented: $app.showAddSheet) { AddLinkSheet() }
         .overlay(alignment: .bottom) {
