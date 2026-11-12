@@ -1,0 +1,15 @@
+name: Core
+
+on:
+  push:
+    branches: [main]
+    paths: [Packages/BackLogCore/**, .github/workflows/core.yml]
+  pull_request:
+    paths: [Packages/BackLogCore/**, .github/workflows/core.yml]
+
+jobs:
+  swift:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - run: swift test --package-path Packages/BackLogCore
