@@ -63,6 +63,7 @@ struct BackLogApp: App {
                     backfillSearch()
                     await ToolManager.shared.ensure()
                     downloader.resumePending(in: container.mainContext)
+                    Task { await downloader.analyzeMissing(in: container.mainContext) }
                     summarizer.summarizeMissing()
                     async let rules: Void = storage.runPeriodically()
                     async let model: Void = summarizer.watchAvailability()

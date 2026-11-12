@@ -387,3 +387,12 @@ import Testing
         #expect(link.note == "Maybe good life advice")
     }
 }
+
+@Suite struct VTTWriterTests {
+    @Test func roundTrips() {
+        let lines = [TranscriptLine(start: 0.5, text: "Preheat the oven."), TranscriptLine(start: 65.25, text: "Bake for 20 minutes.")]
+        let vtt = Transcript.vtt(lines)
+        #expect(vtt.contains("00:00:00.500 --> 00:01:05.250"))
+        #expect(Transcript.parseVTT(vtt) == lines)
+    }
+}

@@ -70,6 +70,20 @@ public enum Transcript {
         return chunks
     }
 
+    /// WebVTT for lines that have only start times; each cue lasts until the next one.
+    public static func vtt(_ lines: [TranscriptLine]) -> String {
+        func stamp(_ s: Double) -> String {
+            let ms = Int((max(0, s) * 1000).rounded())
+            return String(format: "%02d:%02d:%02d.%03d", ms / 3_600_000, ms / 60_000 % 60, ms / 1000 % 60, ms % 1000)
+        }
+        var out = "WEBVTT\n"
+        for (i, line) in lines.enumerated() {
+            let end = i + 1 < lines.count ? lines[i + 1].start : line.start + 4
+            out += "\n\(stamp(line.start)) --> \(stamp(max(end, line.start + 0.5)))\n\(line.text)\n"
+        }
+        return out
+    }
+
     /// Plain text for search and export.
     public static func plainText(_ lines: [TranscriptLine]) -> String {
         lines.map(\.text).joined(separator: " ")
