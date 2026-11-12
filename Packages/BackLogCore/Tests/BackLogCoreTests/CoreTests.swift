@@ -396,3 +396,23 @@ import Testing
         #expect(Transcript.parseVTT(vtt) == lines)
     }
 }
+
+@Suite struct OEmbedTests {
+    @Test func endpoints() {
+        let yt = OEmbed.endpoint(for: URL(string: "https://youtube.com/shorts/eArgP5uw_OQ?is=EJkp")!)
+        #expect(yt?.absoluteString == "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v%3DeArgP5uw_OQ&format=json")
+        #expect(OEmbed.endpoint(for: URL(string: "https://example.com/a")!) == nil)
+    }
+
+    @Test func recognizesConsentWalls() {
+        #expect(OEmbed.isWallTitle("Before you continue to YouTube"))
+        #expect(CaptionTitle.isGeneric("Before you continue to YouTube"))
+        #expect(!OEmbed.isWallTitle("Mercedes Car advanced Crash Deployment technology"))
+    }
+
+    @Test func decodes() throws {
+        let json = #"{"title":"T","author_name":"A","thumbnail_url":"https://i.ytimg.com/vi/x/hqdefault.jpg"}"#
+        let o = try JSONDecoder().decode(OEmbed.self, from: Data(json.utf8))
+        #expect(o.title == "T" && o.authorName == "A")
+    }
+}
