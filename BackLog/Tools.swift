@@ -1,16 +1,12 @@
 import Foundation
 
-/// Finds and runs the command-line tools BackLog uses (yt-dlp, ffmpeg).
-/// Bundled copies in Contents/Resources/bin win; otherwise Homebrew's.
+/// Finds and runs the command-line tools BackLog uses (yt-dlp, deno, ffmpeg): Homebrew's when
+/// installed, else BackLog's own copies (see ToolManager).
 enum Tools {
-    static let searchPaths = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]
+    static let searchPaths = ["/opt/homebrew/bin", "/usr/local/bin"]
 
     static func find(_ name: String) -> URL? {
-        if let bundled = Bundle.main.resourceURL?.appending(path: "bin/\(name)"),
-           FileManager.default.isExecutableFile(atPath: bundled.path) {
-            return bundled
-        }
-        for dir in searchPaths {
+        for dir in searchPaths + [ToolManager.directory.path] {
             let url = URL(fileURLWithPath: dir).appending(path: name)
             if FileManager.default.isExecutableFile(atPath: url.path) { return url }
         }
@@ -32,7 +28,7 @@ enum Tools {
         process.executableURL = executable
         process.arguments = arguments
         var env = ProcessInfo.processInfo.environment
-        env["PATH"] = ([executable.deletingLastPathComponent().path] + searchPaths + [env["PATH"] ?? ""]).joined(separator: ":")
+        env["PATH"] = ([executable.deletingLastPathComponent().path] + searchPaths + [ToolManager.directory.path, env["PATH"] ?? ""]).joined(separator: ":")
         env["PYTHONUNBUFFERED"] = "1"
         process.environment = env
         let out = Pipe(), err = Pipe()

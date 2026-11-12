@@ -15,16 +15,23 @@ history of what you've consumed.
 
 Early. M1: add links, download, play, history. M2: transcripts, on-device summaries (TL;DR → detailed), Skim mode. M3: any link (articles saved offline, reels, Hacker News), preview images read with Vision, search by words and meaning (⌘F). M4: storage rules (download the next few, auto-delete watched, size limit), History export to Markdown + JSONL (for LifeLog), Settings, menu bar, Share menu, ⌥⌘L from any browser, stars.
 
+## Install
+
+Download the DMG from the [latest release](https://github.com/djui/backlog/releases/latest)
+(macOS 26+, Apple silicon) — or see [djui.github.io/backlog](https://djui.github.io/backlog/).
+BackLog fetches yt-dlp (and deno, which yt-dlp needs for YouTube) on first use and keeps them
+current; Homebrew's copies are used when installed. ffmpeg is optional.
+
 ## Build
 
-Needs Xcode 27, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and, for now, Homebrew's
-yt-dlp and ffmpeg:
+Needs Xcode 27 and [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
 ```bash
-brew install xcodegen yt-dlp ffmpeg
+brew install xcodegen
 make run        # debug build and launch
 make install    # release build into /Applications
 make test       # core unit tests
+make release    # tests, notarized DMG, Sparkle appcast, GitHub release
 ```
 
 Add from anywhere with the URL scheme: `open "backlog://add?url=<url-encoded link>&from=Anna"`.

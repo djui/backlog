@@ -15,6 +15,7 @@ BUILD_DIR=build
 ARCHIVE="$BUILD_DIR/BackLog.xcarchive"
 APP="$BUILD_DIR/BackLog.app"
 
+[[ -f Shared/AppIcon.icon/icon.json ]] || swift scripts/make_icons.swift
 xcodegen generate --quiet
 
 team="${DEVELOPMENT_TEAM:-}"

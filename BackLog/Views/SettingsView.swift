@@ -34,6 +34,9 @@ private struct GeneralSettings: View {
                         catch { launchAtLogin = SMAppService.mainApp.status == .enabled }
                     }
             }
+            Section("Video downloader") {
+                ToolsStatus()
+            }
             Section("Summaries") {
                 if let reason = Summarizer.unavailableReason {
                     Label(reason, systemImage: "exclamationmark.triangle").foregroundStyle(.secondary)
@@ -211,5 +214,24 @@ extension StorageManager {
         let n = (try? HistoryExport.write(entries, to: folder)) ?? 0
         Preferences.shared.lastExport = .now
         return n
+    }
+}
+
+private struct ToolsStatus: View {
+    private var tools = ToolManager.shared
+
+    var body: some View {
+        LabeledContent("yt-dlp") {
+            HStack {
+                switch tools.state {
+                case .installing(let name): ProgressView().controlSize(.small); Text("Updating \(name)…")
+                case .failed(let message): Text(message).foregroundStyle(.red)
+                default: Text(tools.ytdlpVersion ?? "—").foregroundStyle(.secondary)
+                }
+                Button("Update Now") { Task { await tools.ensure(forceUpdate: true) } }
+            }
+        }
+        Text(Tools.ffmpeg == nil ? "Kept up to date automatically. Video and audio are joined by BackLog (no ffmpeg needed)." : "Using ffmpeg from Homebrew to join video and audio.")
+            .font(.caption).foregroundStyle(.secondary)
     }
 }

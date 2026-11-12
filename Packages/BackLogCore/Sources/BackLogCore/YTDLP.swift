@@ -23,6 +23,20 @@ public enum DownloadQuality: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// Without ffmpeg: the video and audio streams downloaded separately (BackLog joins them with
+    /// AVFoundation), else a single file that has both.
+    public var separateStreamsSelector: String {
+        func video(_ height: Int) -> String {
+            "bv*[height<=\(height)][vcodec^=avc1][ext=mp4],ba[ext=m4a]/b[height<=\(height)][ext=mp4]/b[ext=mp4]"
+        }
+        switch self {
+        case .small: return video(480)
+        case .medium: return video(720)
+        case .high: return video(1080)
+        case .audio: return "ba[ext=m4a]"
+        }
+    }
+
     /// yt-dlp format selector. Video must be H.264 (avc1) and audio AAC (m4a): AVFoundation plays
     /// neither VP9 nor Opus from an mp4.
     public var formatSelector: String {
@@ -89,10 +103,23 @@ public enum YTDLP {
         ["--dump-single-json", "--no-playlist", "--no-warnings", "--skip-download", url.absoluteString]
     }
 
-    /// Arguments that download into `directory` as `media.<ext>`, with `thumb.jpg`, `subs.<lang>.vtt`
-    /// and `info.info.json` beside it.
+    /// Arguments that download into `directory` as `media.<ext>`, with `thumb.<ext>` and
+    /// `info.info.json` beside it. Without ffmpeg, separate streams land as `media.f<id>.<ext>` to be
+    /// joined afterwards (`MediaStreams.parts`).
     public static func downloadArguments(for url: URL, into directory: URL, quality: DownloadQuality, ffmpeg: URL?) -> [String] {
         let dir = directory.path
+        guard ffmpeg != nil else {
+            return [
+                "--no-playlist", "--newline", "--no-colors", "--no-warnings", "--no-part",
+                "-f", quality.separateStreamsSelector,
+                "-o", "\(dir)/media.f%(format_id)s.%(ext)s",
+                "-o", "thumbnail:\(dir)/thumb.%(ext)s",
+                "-o", "infojson:\(dir)/info",
+                "--write-thumbnail", "--write-info-json",
+                "--progress-template", "download:\(progressPrefix) %(progress.downloaded_bytes)s %(progress.total_bytes)s %(progress.total_bytes_estimate)s %(progress.speed)s",
+                url.absoluteString,
+            ]
+        }
         var args = [
             "--no-playlist", "--newline", "--no-colors", "--no-warnings", "--no-part",
             "-f", quality.formatSelector,
@@ -113,6 +140,14 @@ public enum YTDLP {
         return args
     }
 
+    /// Separate stream files (`media.f<id>.<ext>`) in a folder: the video and the audio part.
+    public static func streamParts(in names: [String]) -> (video: String?, audio: String?) {
+        let parts = names.filter { $0.hasPrefix("media.f") }
+        let audio = parts.first { $0.hasSuffix(".m4a") }
+        let video = parts.first { $0.hasSuffix(".mp4") || $0.hasSuffix(".m4v") || $0.hasSuffix(".mov") }
+        return (video, audio)
+    }
+
     /// Arguments that fetch captions only, as `subs.<lang>.vtt`: uploaded captions first, else the
     /// automatic ones, in the video's own language. Never translations — asking for many languages
     /// gets rate-limited.
@@ -121,7 +156,7 @@ public enum YTDLP {
         return [
             "--no-playlist", "--no-colors", "--no-warnings", "--skip-download", "--ignore-errors",
             "--write-subs", "--write-auto-subs", "--sub-langs", "\(lang),\(lang)-orig,\(lang)-[A-Z]+",
-            "--sub-format", "vtt/best", "--convert-subs", "vtt",
+            "--sub-format", "vtt",
             "-o", "\(directory.path)/subs.%(ext)s",
             url.absoluteString,
         ]

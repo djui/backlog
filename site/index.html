@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>BackLog: watch later, read later — offline</title>
+  <meta name="description" content="BackLog is a free Mac app that keeps everything you want to watch or read in one queue, downloads it for offline, summarizes it on your Mac and keeps a searchable history of everything you've seen.">
+  <link rel="canonical" href="https://djui.github.io/backlog/">
+  <meta name="color-scheme" content="light dark">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="BackLog: watch later, read later — offline">
+  <meta property="og:description" content="One queue for videos, reels, articles and links. Offline, summarized on your Mac, searchable forever.">
+  <meta property="og:url" content="https://djui.github.io/backlog/">
+  <meta property="og:image" content="https://djui.github.io/backlog/assets/icon.png">
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <style>
+    :root {
+      --bg: #fbf8f4; --fg: #1d1c1a; --muted: #6b675f; --card: #ffffff; --line: #ece6dd; --accent: #d9622b;
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #141312; --fg: #f2efe9; --muted: #a39d93; --card: #1e1d1b; --line: #2d2b28; --accent: #f08a4b; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+    main { max-width: 960px; margin: 0 auto; padding: 72px 24px 96px; }
+    header { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
+    header img { width: 128px; height: 128px; border-radius: 28px; background: linear-gradient(#fffaf4, #f6eadc); box-shadow: 0 10px 30px rgba(0,0,0,.12); }
+    h1 { font-size: clamp(36px, 6vw, 56px); line-height: 1.05; margin: 0 0 10px; letter-spacing: -0.02em; }
+    .lede { font-size: 21px; color: var(--muted); margin: 0; max-width: 34em; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+    .button { display: inline-flex; align-items: center; height: 46px; padding: 0 22px; border-radius: 23px; font-weight: 600; text-decoration: none; }
+    .primary { background: var(--accent); color: #fff; }
+    .secondary { border: 1px solid var(--line); color: var(--fg); background: var(--card); }
+    .note { font-size: 14px; color: var(--muted); margin-top: 10px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 64px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; }
+    .card h2 { font-size: 18px; margin: 0 0 6px; }
+    .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+    h3 { margin-top: 64px; font-size: 22px; }
+    ol { color: var(--muted); padding-left: 22px; }
+    code { font: 14px ui-monospace, "SF Mono", Menlo, monospace; background: var(--card); border: 1px solid var(--line); padding: 1px 6px; border-radius: 6px; color: var(--fg); }
+    footer { margin-top: 72px; color: var(--muted); font-size: 14px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="assets/icon.png" alt="BackLog app icon: a stack of cards, the front one with a play button and lines of text">
+    <div>
+      <h1>BackLog</h1>
+      <p class="lede">Watch later, read later — offline. One queue for the videos, reels, articles and links you mean to get to, and a history of everything you did.</p>
+    </div>
+  </header>
+
+  <div class="actions">
+    <a class="button primary" href="https://github.com/djui/backlog/releases/latest">Download for Mac</a>
+    <a class="button secondary" href="https://github.com/djui/backlog">Source on GitHub</a>
+  </div>
+  <p class="note">Free. macOS 26 or later on Apple silicon. Signed and notarized; updates itself. iPhone app in testing.</p>
+
+  <section class="grid" aria-label="Features">
+    <div class="card"><h2>Save from anywhere</h2><p>Share → BackLog from Safari, Messages or WhatsApp, press ⌥⌘L in any browser, paste or drop a link. A whole chat message works too — the text becomes a note, with who sent it.</p></div>
+    <div class="card"><h2>Offline, small by default</h2><p>Videos download at 480p (about 4 MB a minute) with captions. Articles are saved in a clean reader with their pictures. Reels keep their caption and picture even when they can't be downloaded.</p></div>
+    <div class="card"><h2>Summaries you can scale</h2><p>A one-line takeaway, the key points, or detailed notes — made on your Mac by Apple's on-device model. Timestamps jump right to the moment.</p></div>
+    <div class="card"><h2>Skim mode</h2><p>Go through your queue as summaries: watch it, keep just the notes, or skip it. J/K to move, W/N/X to decide.</p></div>
+    <div class="card"><h2>Find it in two years</h2><p>Search by words in titles, captions, transcripts and article text, by what's in the preview picture, or just by what you remember it was about.</p></div>
+    <div class="card"><h2>Tidy by itself</h2><p>Keeps the next few videos ready and deletes what you've watched after a few days. The item, its summary and transcript stay in History forever.</p></div>
+    <div class="card"><h2>History you own</h2><p>Exports everything you've watched and read as Markdown — one file a day — plus JSON lines, into any folder, for your journal or life log.</p></div>
+    <div class="card"><h2>Private</h2><p>No account, no server. Downloads, summaries, picture recognition and search all run on your Mac.</p></div>
+  </section>
+
+  <h3>Install</h3>
+  <ol>
+    <li>Download the DMG from the <a href="https://github.com/djui/backlog/releases/latest">latest release</a> and drag BackLog to Applications.</li>
+    <li>Open it. It fetches the video downloader (<a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a>) on first use and keeps it current.</li>
+    <li>For summaries, turn on Apple Intelligence in System Settings.</li>
+  </ol>
+
+  <footer>BackLog downloads what you ask it to for your own offline viewing; respect the sites' terms and creators' rights. Made by <a href="https://github.com/djui">djui</a>.</footer>
+</main>
+</body>
+</html>

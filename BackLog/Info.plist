@@ -15,6 +15,9 @@
 	<key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key><string>© 2026 Uwe Dauernheim</string>
 	<key>NSAppleEventsUsageDescription</key><string>BackLog saves the page open in your browser when you press ⌥⌘L.</string>
+	<key>SUFeedURL</key><string>https://github.com/djui/backlog/releases/latest/download/appcast.xml</string>
+	<key>SUEnableAutomaticChecks</key><true/>
+	<key>SUPublicEDKey</key><string>h2zBK9D3U7OYMeRxof0X06CEuMWmE4+8+yZaLkd/uQ0=</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

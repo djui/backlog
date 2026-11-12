@@ -112,7 +112,8 @@ final class Downloader {
     /// Videos and reels: yt-dlp for details and media. A reel yt-dlp can't get (sign-in walls)
     /// still gets its caption and image from the page. Returns a message when the media failed.
     private func captureMedia(_ item: Item, url: URL, files: ItemFiles) async throws -> String? {
-        guard let ytdlp = Tools.ytdlp else { return "yt-dlp not found — brew install yt-dlp ffmpeg" }
+        if Tools.ytdlp == nil { await ToolManager.shared.ensure() }
+        guard let ytdlp = Tools.ytdlp else { return "Couldn't set up the video downloader — check your connection" }
         let meta: YTDLPMetadata
         do {
             let json = try await Tools.run(ytdlp, YTDLP.metadataArguments(for: url))
@@ -137,6 +138,8 @@ final class Downloader {
                     self.status[id] = .downloading(fraction: progress.fraction, bytesPerSecond: progress.bytesPerSecond)
                 }
             }
+            try await MediaJoiner.joinIfNeeded(in: files.directory)
+            MediaJoiner.normalizeThumbnail(in: files.directory)
             guard files.media != nil else { return "Finished, but no media file was written" }
         }
         // Captions are a bonus: a failure here never fails the download.

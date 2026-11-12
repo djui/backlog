@@ -55,11 +55,20 @@ import Testing
     }
 
     @Test func downloadArgumentsUseFolderAndQuality() {
-        let args = YTDLP.downloadArguments(for: URL(string: "https://youtu.be/a")!, into: URL(fileURLWithPath: "/tmp/item"), quality: .small, ffmpeg: nil)
+        let args = YTDLP.downloadArguments(for: URL(string: "https://youtu.be/a")!, into: URL(fileURLWithPath: "/tmp/item"), quality: .small, ffmpeg: URL(fileURLWithPath: "/bin/ffmpeg"))
         #expect(args.contains("/tmp/item/media.%(ext)s"))
         #expect(args.contains(DownloadQuality.small.formatSelector))
         #expect(args.last == "https://youtu.be/a")
-        #expect(!args.contains("--ffmpeg-location"))
+        #expect(args.contains("--ffmpeg-location"))
+    }
+
+    @Test func withoutFFmpegDownloadsSeparateStreams() {
+        let args = YTDLP.downloadArguments(for: URL(string: "https://youtu.be/a")!, into: URL(fileURLWithPath: "/tmp/item"), quality: .small, ffmpeg: nil)
+        #expect(args.contains(DownloadQuality.small.separateStreamsSelector))
+        #expect(args.contains("/tmp/item/media.f%(format_id)s.%(ext)s"))
+        #expect(!args.contains("--convert-thumbnails"))
+        let parts = YTDLP.streamParts(in: ["media.f135.mp4", "media.f140.m4a", "thumb.webp"])
+        #expect(parts.video == "media.f135.mp4" && parts.audio == "media.f140.m4a")
     }
 
     @Test func subtitleArgumentsUseOwnLanguageOnly() {

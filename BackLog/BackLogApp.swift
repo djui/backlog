@@ -1,5 +1,6 @@
 import AppKit
 import BackLogCore
+import Sparkle
 import SwiftData
 import SwiftUI
 
@@ -10,6 +11,14 @@ struct BackLogApp: App {
     @State private var summarizer: Summarizer
     @State private var search = SearchIndex()
     private let storage: StorageManager
+    /// Sparkle updates; only in signed release builds (debug builds aren't in the appcast).
+    private let updater: SPUStandardUpdaterController? = {
+        #if DEBUG
+        return nil
+        #else
+        return SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        #endif
+    }()
     @State private var app = AppState()
 
     init() {
@@ -56,6 +65,7 @@ struct BackLogApp: App {
                 .frame(minWidth: 960, minHeight: 600)
                 .task {
                     backfillSearch()
+                    await ToolManager.shared.ensure()
                     downloader.resumePending(in: container.mainContext)
                     summarizer.summarizeMissing()
                     async let rules: Void = storage.runPeriodically()
@@ -67,6 +77,10 @@ struct BackLogApp: App {
         .defaultSize(width: 1360, height: 820)
         .modelContainer(container)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { updater?.checkForUpdates(nil) }
+                    .disabled(updater == nil)
+            }
             CommandGroup(after: .newItem) {
                 Button("Add Link…") { app.showAddSheet = true }
                     .keyboardShortcut("n")
