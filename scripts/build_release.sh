@@ -24,7 +24,11 @@ team=8DR8DB9W22
 
 rm -rf "$ARCHIVE" "$APP"
 mkdir -p "$BUILD_DIR"
-xcodebuild \
+# Apple's timestamp service fails now and then ("The timestamp service is not available");
+# retry the archive a few times on exactly that error.
+for attempt in 1 2 3; do
+  log="$BUILD_DIR/archive.log"
+  if xcodebuild \
   -project BackLog.xcodeproj \
   -scheme BackLog \
   -configuration Release \
@@ -33,7 +37,17 @@ xcodebuild \
   -archivePath "$ARCHIVE" \
   ARCHS=arm64 \
   -quiet \
-  archive
+  archive >"$log" 2>&1; then
+    break
+  fi
+  if grep -q "timestamp" "$log" && [[ $attempt -lt 3 ]]; then
+    echo "Timestamp service unavailable; retrying in 20 s (attempt $attempt)…" >&2
+    sleep 20
+    continue
+  fi
+  cat "$log" >&2
+  exit 1
+done
 
 if [[ "$NOTARIZE" == 1 ]]; then
   source scripts/notary.sh
