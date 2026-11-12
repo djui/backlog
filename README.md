@@ -13,7 +13,7 @@ history of what you've consumed.
 
 ## Status
 
-Early. M1–M5: the Mac app (links, offline video and articles, transcripts, on-device summaries, Skim, search by words and meaning, storage rules, History export, Share menu, ⌥⌘L, releases with Sparkle). M6: the iPhone app in TestFlight — the same list through iCloud, Share › BackLog from WhatsApp and Messages, videos open in their own apps (at the right moment), articles offline.
+Early. M1–M5: the Mac app (links, offline video and articles, transcripts, on-device summaries, search by words and meaning, storage rules, History export, Share menu, ⌥⌘L, releases with Sparkle). M6: the iPhone app in TestFlight — the same list through iCloud, Share › BackLog from WhatsApp and Messages, videos open in their own apps (at the right moment), articles offline.
 
 ## Install
 

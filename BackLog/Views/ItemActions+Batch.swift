@@ -155,9 +155,8 @@ struct ItemMenuCommands: Commands {
         }
         CommandGroup(before: .sidebar) {
             Button("Up Next") { app.requestedSection = 0 }.keyboardShortcut("1", modifiers: .command)
-            Button("Skim") { app.requestedSection = 1 }.keyboardShortcut("2", modifiers: .command)
-            Button("Downloading") { app.requestedSection = 2 }.keyboardShortcut("3", modifiers: .command)
-            Button("History") { app.requestedSection = 3 }.keyboardShortcut("4", modifiers: .command)
+            Button("Downloading") { app.requestedSection = 1 }.keyboardShortcut("2", modifiers: .command)
+            Button("History") { app.requestedSection = 2 }.keyboardShortcut("3", modifiers: .command)
             Divider()
         }
     }

@@ -15,9 +15,6 @@ struct MobileRootView: View {
             Tab("Up Next", systemImage: "list.bullet") {
                 NavigationStack { MobileList(section: .upNext, showAdd: $showAdd) }
             }
-            Tab("Skim", systemImage: "text.alignleft") {
-                NavigationStack { MobileSkim() }
-            }
             Tab("History", systemImage: "clock") {
                 NavigationStack { MobileList(section: .history, showAdd: $showAdd) }
             }
@@ -402,69 +399,6 @@ struct ReaderWeb: UIViewRepresentable {
     }
 
     func updateUIView(_ view: WKWebView, context: Context) {}
-}
-
-// MARK: - Skim
-
-struct MobileSkim: View {
-    @Query(sort: \Item.sortIndex) private var items: [Item]
-    @Environment(\.modelContext) private var context
-    @AppStorage("skimLength") private var length: SummaryLength = .tldr
-    @State private var tick = 0
-
-    var body: some View {
-        let queue = items.filter { !$0.state.isFinished }
-        ScrollView {
-            LazyVStack(spacing: 14) {
-                ForEach(queue) { item in
-                    VStack(alignment: .leading, spacing: 10) {
-                        MobileThumbnail(item: item)
-                            .aspectRatio(16 / 9, contentMode: .fit)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                        Text(item.title).font(.headline)
-                        Text([item.kind.label, item.author, item.durationText].filter { !$0.isEmpty }.joined(separator: " · "))
-                            .font(.caption).foregroundStyle(.secondary)
-                        if let s = item.summary {
-                            Text(s.takeaway).font(.callout.weight(.medium))
-                            ForEach(s.points(for: length)) { Text("• " + $0.text).font(.callout).foregroundStyle(.secondary) }
-                        } else if !item.details.isEmpty {
-                            Text(item.details).font(.callout).foregroundStyle(.secondary).lineLimit(4)
-                        }
-                        HStack {
-                            NavigationLink(value: item.id) { Text("Open") }.buttonStyle(.glassProminent)
-                            Button("Notes only") {
-                                ItemFiles(id: item.id).deleteMedia()
-                                Library.finish(item, as: .skimmed, context: context); tick += 1
-                            }
-                            .buttonStyle(.glass)
-                            Button("Skip") { Library.finish(item, as: .skipped, context: context); tick += 1 }
-                                .buttonStyle(.glass)
-                        }
-                    }
-                    .padding(14)
-                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: 20))
-                    .transition(.asymmetric(insertion: .opacity, removal: .move(edge: .leading).combined(with: .opacity)))
-                }
-            }
-            .padding(.horizontal)
-            .animation(.snappy, value: queue.map(\.id))
-        }
-        .navigationTitle("Skim")
-        .navigationDestination(for: UUID.self) { id in
-            if let item = items.first(where: { $0.id == id }) { MobileDetail(item: item) }
-        }
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Length", selection: $length) {
-                    ForEach(SummaryLength.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 260)
-            }
-        }
-        .overlay { if queue.isEmpty { ContentUnavailableView("Nothing to skim", systemImage: "text.alignleft") } }
-        .sensoryFeedback(.impact(weight: .light), trigger: tick)
-    }
 }
 
 // MARK: - Search

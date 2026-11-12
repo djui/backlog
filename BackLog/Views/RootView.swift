@@ -3,13 +3,12 @@ import SwiftData
 import SwiftUI
 
 enum LibrarySection: String, Hashable, CaseIterable, Identifiable {
-    case upNext, skim, downloading, history
+    case upNext, downloading, history
     var id: Self { self }
 
     var title: String {
         switch self {
         case .upNext: "Up Next"
-        case .skim: "Skim"
         case .downloading: "Downloading"
         case .history: "History"
         }
@@ -18,7 +17,6 @@ enum LibrarySection: String, Hashable, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .upNext: "list.bullet"
-        case .skim: "text.alignleft"
         case .downloading: "arrow.down.circle"
         case .history: "clock"
         }
@@ -57,8 +55,6 @@ struct RootView: View {
             Group {
                 if !app.searchText.isEmpty {
                     SearchResultsView(query: app.searchText, items: items, selection: $app.selected)
-                } else if section == .skim {
-                    SkimView(items: items, selection: $app.selection, section: $section)
                 } else {
                     ItemListView(section: section ?? .upNext, items: items, selection: $app.selected)
                 }
@@ -130,7 +126,6 @@ struct RootView: View {
         case .upNext: items.filter { !$0.state.isFinished }.count
         case .downloading: items.filter { downloader.status(of: $0).isActive }.count
         case .history: items.filter(\.state.isFinished).count
-        case .skim: 0
         }
     }
 }
