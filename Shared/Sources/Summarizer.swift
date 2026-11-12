@@ -46,7 +46,7 @@ final class Summarizer {
 
     static func source(for item: Item) -> Source? {
         let files = ItemFiles(id: item.id)
-        let transcript = files.transcript
+        let transcript = item.transcript
         if !transcript.isEmpty { return Source(lines: transcript, timed: true) }
         let screen = (try? String(contentsOf: files.directory.appending(path: "screen.txt"), encoding: .utf8)) ?? ""
         if screen.count > 300 {

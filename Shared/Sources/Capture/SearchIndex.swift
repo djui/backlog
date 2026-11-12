@@ -32,7 +32,7 @@ final class SearchIndex {
     /// Transcript and article text for keyword search (first ~20k characters).
     static func extraText(for item: Item) -> String {
         let files = ItemFiles(id: item.id)
-        let body = files.articleText ?? Transcript.plainText(files.transcript)
+        let body = files.articleText ?? Transcript.plainText(item.transcript)
         return String(body.prefix(20_000))
     }
 

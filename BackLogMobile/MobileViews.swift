@@ -214,6 +214,7 @@ struct MobileDetail: View {
     @Environment(\.openURL) private var openURL
     @AppStorage("summaryLength") private var length: SummaryLength = .keyPoints
     @State private var showReader = false
+    @State private var showTranscript = false
     @State private var tick = 0
 
     var body: some View {
@@ -265,6 +266,32 @@ struct MobileDetail: View {
                     .animation(.snappy, value: length)
                 } else if !item.details.isEmpty {
                     Text(item.details).font(.callout).foregroundStyle(.secondary).lineLimit(12)
+                }
+
+                let transcript = Transcript.paragraphs(item.transcript, every: 20)
+                if !transcript.isEmpty {
+                    DisclosureGroup(isExpanded: $showTranscript) {
+                        LazyVStack(alignment: .leading, spacing: 10) {
+                            ForEach(transcript) { line in
+                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                    if let url = timestampURL(line.start), url != item.url {
+                                        Button(Transcript.clock(line.start)) { openURL(url) }
+                                            .font(.caption.monospacedDigit())
+                                            .frame(width: 44, alignment: .leading)
+                                    } else {
+                                        Text(Transcript.clock(line.start)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                                            .frame(width: 44, alignment: .leading)
+                                    }
+                                    Text(line.text).font(.callout).textSelection(.enabled)
+                                }
+                            }
+                        }
+                        .padding(.top, 8)
+                    } label: {
+                        Label("Transcript", systemImage: "text.quote").font(.headline)
+                    }
+                    .padding(16)
+                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
                 }
             }
             .padding()

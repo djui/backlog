@@ -36,6 +36,9 @@ final class Item {
     var capturedAt: Date?
     /// Everything searchable, lower-cased: title, author, details, note, image, summary, transcript start.
     var searchText: String = ""
+    /// The transcript as JSON ([TranscriptLine]), so devices without the video (the iPhone) have it
+    /// too. Written by the Mac from captions or its own transcription.
+    var transcriptJSON: String = ""
     /// Starred items keep their downloads regardless of the storage rules.
     var starred: Bool = false
 
@@ -52,6 +55,30 @@ final class Item {
     }
 
     var summary: Summary? { Summary(json: summaryJSON) }
+
+    /// The transcript: from this device's caption files, else the synced copy.
+    var transcript: [TranscriptLine] {
+        let local = ItemFiles(id: id).transcript
+        if !local.isEmpty { return local }
+        guard !transcriptJSON.isEmpty, let lines = try? JSONDecoder().decode([TranscriptLine].self, from: Data(transcriptJSON.utf8)) else { return [] }
+        return lines
+    }
+
+    /// Stores the local transcript in the synced field (capped well below CloudKit's record size).
+    /// Returns whether anything changed.
+    @discardableResult
+    func syncTranscriptFromFiles() -> Bool {
+        var lines = ItemFiles(id: id).transcript
+        guard !lines.isEmpty else { return false }
+        var json = (try? String(decoding: JSONEncoder().encode(lines), as: UTF8.self)) ?? ""
+        while json.utf8.count > 300_000, lines.count > 10 {
+            lines.removeLast(lines.count / 4)
+            json = (try? String(decoding: JSONEncoder().encode(lines), as: UTF8.self)) ?? ""
+        }
+        guard json != transcriptJSON else { return false }
+        transcriptJSON = json
+        return true
+    }
 
     /// The text that describes this item, for search and embeddings (without the full transcript).
     var describingText: String {

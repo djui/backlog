@@ -153,6 +153,7 @@ final class Downloader {
             _ = try? await Tools.run(ytdlp, YTDLP.subtitleArguments(for: url, into: files.directory, language: meta.language))
         }
         await analyzeShortVideo(item, files: files)
+        if item.syncTranscriptFromFiles() { try? container.mainContext.save() }
         return nil
     }
 
@@ -169,11 +170,15 @@ final class Downloader {
     /// Short videos downloaded before transcription and on-screen text existed.
     func analyzeMissing(in context: ModelContext) async {
         let items = (try? context.fetch(FetchDescriptor<Item>())) ?? []
+        // Transcripts made before they synced: share them with the iPhone.
+        for item in items where item.transcriptJSON.isEmpty { item.syncTranscriptFromFiles() }
+        try? context.save()
         for item in items {
             let files = ItemFiles(id: item.id)
             let done = FileManager.default.fileExists(atPath: files.directory.appending(path: "screen.txt").path)
             guard !done, MediaAnalyzer.shouldAnalyze(item, files: files), !(status[item.id]?.isActive ?? false) else { continue }
             await analyzeShortVideo(item, files: files)
+            item.syncTranscriptFromFiles()
             item.rebuildSearchText(extra: SearchIndex.extraText(for: item))
             search?.index(item)
             status[item.id] = .idle
