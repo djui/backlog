@@ -14,6 +14,7 @@
 	<key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
 	<key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key><string>© 2026 Uwe Dauernheim</string>
+	<key>NSSpeechRecognitionUsageDescription</key><string>BackLog transcribes short videos without captions, on this Mac, so you can read and search what was said.</string>
 	<key>NSAppleEventsUsageDescription</key><string>BackLog saves the page open in your browser when you press ⌥⌘L.</string>
 	<key>SUFeedURL</key><string>https://github.com/djui/backlog/releases/latest/download/appcast.xml</string>
 	<key>SUEnableAutomaticChecks</key><true/>

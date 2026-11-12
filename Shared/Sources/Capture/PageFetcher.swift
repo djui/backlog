@@ -17,7 +17,8 @@ enum PageFetcher {
 
     static func userAgent(for url: URL) -> String {
         let host = SourceClassifier.normalizedHost(url)
-        let social = ["instagram.com", "tiktok.com", "facebook.com", "threads.net", "x.com", "twitter.com", "linkedin.com"]
+        let social = ["instagram.com", "tiktok.com", "facebook.com", "threads.net", "x.com", "twitter.com", "linkedin.com",
+                      "spotify.com", "music.apple.com", "podcasts.apple.com"]
         return social.contains(where: { host == $0 || host.hasSuffix("." + $0) }) ? previewAgent : safariAgent
     }
 

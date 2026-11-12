@@ -6,12 +6,16 @@ import UniformTypeIdentifiers
 struct ItemListView: View {
     let section: LibrarySection
     let items: [Item]
-    @Binding var selection: UUID?
+    @Binding var selection: Set<UUID>
     @Environment(\.modelContext) private var context
     @Environment(Downloader.self) private var downloader
     @Environment(AppState.self) private var app
+    @AppStorage("lengthFilter") private var length: LengthFilter = .any
+    @AppStorage("listSort") private var sort: ListSort = .manual
 
-    private var shown: [Item] {
+    private var shown: [Item] { Library.arrange(base, length: length, sort: sort) }
+
+    private var base: [Item] {
         switch section {
         case .upNext, .skim:
             items.filter { !$0.state.isFinished }
@@ -33,15 +37,31 @@ struct ItemListView: View {
             ForEach(shown) { item in
                 ItemRow(item: item, status: downloader.status(of: item))
                     .tag(item.id)
-                    .contextMenu { menu(for: item) }
             }
-            .onMove(perform: section == .upNext ? { Library.move(shown, from: $0, to: $1, context: context) } : nil)
+            .onMove(perform: section == .upNext && sort == .manual && length == .any ? { Library.move(shown, from: $0, to: $1, context: context) } : nil)
         }
         .listStyle(.inset)
+        .contextMenu(forSelectionType: UUID.self) { ids in
+            ItemContextMenu(items: items.filter { ids.contains($0.id) }) { command in
+                app.selected = ids
+                app.command = command
+            }
+        }
         .navigationTitle(section.title)
         .navigationSubtitle(subtitle(shown))
+        .toolbar {
+            ToolbarItem {
+                ListOptionsMenu(length: $length, sort: $sort)
+            }
+        }
         .overlay {
-            if shown.isEmpty {
+            if shown.isEmpty, length != .any, !base.isEmpty {
+                ContentUnavailableView {
+                    Label("Nothing \(length.label.lowercased())", systemImage: "line.3.horizontal.decrease.circle")
+                } actions: {
+                    Button("Show Any Length") { length = .any }
+                }
+            } else if shown.isEmpty {
                 ContentUnavailableView(emptyTitle, systemImage: section.symbol,
                                        description: Text(section == .upNext ? "Paste a YouTube link (⌘V) or drop one here." : ""))
             }
@@ -53,11 +73,7 @@ struct ItemListView: View {
             for url in urls { app.report(Library.add(text: url.absoluteString, context: context, downloader: downloader)) }
             return !urls.isEmpty
         }
-        .onDeleteCommand {
-            if let id = selection, let item = items.first(where: { $0.id == id }) {
-                Library.delete(item, context: context, downloader: downloader)
-            }
-        }
+        .onDeleteCommand { app.command = .remove }
     }
 
     private var emptyTitle: String {
@@ -72,38 +88,8 @@ struct ItemListView: View {
         let total = shown.reduce(0) { $0 + $1.durationSeconds }
         let hours = Int(total) / 3600, minutes = Int(total) / 60 % 60
         let time = total > 0 ? (hours > 0 ? " · \(hours) h \(minutes) min" : " · \(minutes) min") : ""
-        return "\(shown.count) item\(shown.count == 1 ? "" : "s")\(time)"
-    }
-
-    @ViewBuilder
-    private func menu(for item: Item) -> some View {
-        if item.state.isFinished {
-            Button("Back to Up Next") { item.state = .queued; try? context.save() }
-        } else {
-            Button(item.kind.isPlayable ? "Mark as Watched" : "Mark as Read") { Library.finish(item, context: context) }
-            Button("Skip") { Library.finish(item, as: .skipped, context: context) }
-        }
-        Divider()
-        if item.kind.isPlayable {
-            switch downloader.status(of: item) {
-            case .queued, .fetchingInfo, .downloading:
-                Button("Stop Download") { downloader.cancel(item) }
-            default:
-                Button(ItemFiles(id: item.id).media == nil ? "Download" : "Download Again") { downloader.enqueue(item, media: true) }
-            }
-            if ItemFiles(id: item.id).media != nil {
-                Button("Delete Download, Keep in Library") { ItemFiles(id: item.id).deleteMedia(); try? context.save() }
-            }
-        }
-        if let url = item.url {
-            Button("Open Original") { NSWorkspace.shared.open(url) }
-            Button("Copy Link") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(url.absoluteString, forType: .string)
-            }
-        }
-        Divider()
-        Button("Remove from Library", role: .destructive) { Library.delete(item, context: context, downloader: downloader) }
+        let filter = length == .any ? "" : " · \(length.label)"
+        return "\(shown.count) item\(shown.count == 1 ? "" : "s")\(time)\(filter)"
     }
 
     private func add(from providers: [NSItemProvider]) async {
@@ -239,13 +225,27 @@ struct Thumbnail: View {
         }
     }
 
-    private var symbol: String {
-        switch item.kind {
-        case .video: "play.rectangle"
-        case .reel: "rectangle.portrait"
-        case .article: "doc.text"
-        case .thread: "bubble.left.and.bubble.right"
-        case .link: "link"
+    private var symbol: String { item.kind.symbol }
+}
+
+/// Length filter and sort order, one menu in the toolbar. Filled icon while filtering.
+struct ListOptionsMenu: View {
+    @Binding var length: LengthFilter
+    @Binding var sort: ListSort
+
+    var body: some View {
+        Menu {
+            Picker("Length", selection: $length) {
+                ForEach(LengthFilter.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.inline)
+            Picker("Sort", selection: $sort) {
+                ForEach(ListSort.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Label("Filter & Sort", systemImage: length == .any && sort == .manual ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
         }
+        .help("Filter by length, sort by length or date")
     }
 }

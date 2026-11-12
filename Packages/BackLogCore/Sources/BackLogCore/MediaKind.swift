@@ -12,6 +12,10 @@ public enum MediaKind: String, Codable, CaseIterable, Sendable {
     case thread
     /// Anything else: kept in the list and history, never downloaded.
     case link
+    /// A podcast episode or show (Spotify, Apple Podcasts, Overcast…). Opens in its app.
+    case podcast
+    /// A song, album or playlist (Spotify, Apple Music, SoundCloud). Opens in its app.
+    case music
 
     /// Whether yt-dlp should try to download this.
     public var isPlayable: Bool { self == .video || self == .reel }
@@ -23,6 +27,44 @@ public enum MediaKind: String, Codable, CaseIterable, Sendable {
         case .article: "Article"
         case .thread: "Thread"
         case .link: "Link"
+        case .podcast: "Podcast"
+        case .music: "Music"
+        }
+    }
+
+    /// Takes listening or watching time (shown as 1:02:03) rather than reading time.
+    public var isTimed: Bool { self == .video || self == .reel || self == .podcast || self == .music }
+
+    /// What finishing one is called: Watched, Listened, Read.
+    public var doneLabel: String {
+        switch self {
+        case .video, .reel: "Watched"
+        case .podcast, .music: "Listened"
+        case .article, .thread: "Read"
+        case .link: "Done"
+        }
+    }
+
+    /// The verb for opening it in its own app: Watch, Listen, Read, Open.
+    public var openVerb: String {
+        switch self {
+        case .video, .reel: "Watch"
+        case .podcast, .music: "Listen"
+        case .article, .thread: "Read"
+        case .link: "Open"
+        }
+    }
+
+    /// SF Symbol for placeholders.
+    public var symbol: String {
+        switch self {
+        case .video: "play.rectangle"
+        case .reel: "rectangle.portrait"
+        case .article: "doc.text"
+        case .thread: "bubble.left.and.bubble.right"
+        case .link: "link"
+        case .podcast: "headphones"
+        case .music: "music.note"
         }
     }
 }
@@ -43,6 +85,12 @@ public enum SourceClassifier {
             return .reel
         case "news.ycombinator.com", "reddit.com", "old.reddit.com", "lobste.rs":
             return .thread
+        case "open.spotify.com", "spotify.com", "spotify.link":
+            return (path.hasPrefix("/episode") || path.hasPrefix("/show")) ? .podcast : .music
+        case "podcasts.apple.com", "overcast.fm", "pca.st", "pocketcasts.com", "castro.fm", "podcastaddict.com":
+            return .podcast
+        case "music.apple.com", "soundcloud.com", "bandcamp.com", "tidal.com", "deezer.com":
+            return .music
         case "x.com", "twitter.com", "facebook.com", "threads.net", "linkedin.com":
             return .link
         default:
@@ -88,6 +136,11 @@ public enum SourceClassifier {
         // the time); the path alone names the post.
         let queryless = ["instagram.com", "tiktok.com", "vm.tiktok.com", "threads.net", "x.com", "twitter.com"]
         if queryless.contains(host) { components.queryItems = nil }
+        // Spotify: only the start time (si, pi, utm_… are share tracking).
+        if host == "open.spotify.com" {
+            let kept = (components.queryItems ?? []).filter { $0.name == "t" }
+            components.queryItems = kept.isEmpty ? nil : kept
+        }
         // YouTube: only the video and the start time matter.
         if host == "youtube.com" || host == "youtu.be" {
             let kept = (components.queryItems ?? []).filter { ["v", "t", "list"].contains($0.name) }

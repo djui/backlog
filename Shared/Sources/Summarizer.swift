@@ -48,6 +48,10 @@ final class Summarizer {
         let files = ItemFiles(id: item.id)
         let transcript = files.transcript
         if !transcript.isEmpty { return Source(lines: transcript, timed: true) }
+        let screen = (try? String(contentsOf: files.directory.appending(path: "screen.txt"), encoding: .utf8)) ?? ""
+        if screen.count > 300 {
+            return Source(lines: screen.components(separatedBy: "\n").enumerated().map { TranscriptLine(start: Double($0.offset) * 31, text: $0.element) }, timed: false)
+        }
         if let text = files.articleText, text.count > 800 {
             // Paragraphs as untimed lines, so the same chunking applies.
             let paragraphs = text.components(separatedBy: "\n\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }

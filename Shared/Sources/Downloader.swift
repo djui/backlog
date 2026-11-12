@@ -98,7 +98,7 @@ final class Downloader {
                 // On iPhone, videos open in their own apps; their details come from the page.
                 try await capturePage(item, url: url, files: files)
                 #endif
-            case .article, .thread, .link:
+            case .article, .thread, .link, .podcast, .music:
                 try await capturePage(item, url: url, files: files)
             }
         } catch is CancellationError {
@@ -152,7 +152,33 @@ final class Downloader {
         if files.subtitles.isEmpty, item.kind == .video {
             _ = try? await Tools.run(ytdlp, YTDLP.subtitleArguments(for: url, into: files.directory, language: meta.language))
         }
+        await analyzeShortVideo(item, files: files)
         return nil
+    }
+
+    /// Reels and Shorts: transcript from speech when there are no captions, and the text on screen.
+    func analyzeShortVideo(_ item: Item, files: ItemFiles) async {
+        guard MediaAnalyzer.shouldAnalyze(item, files: files) else { return }
+        status[item.id] = .fetchingInfo
+        if let screen = await MediaAnalyzer.analyze(item, files: files), !screen.isEmpty, !item.imageText.contains(screen.prefix(40)) {
+            item.imageText = [item.imageText, String(screen.prefix(3000))].filter { !$0.isEmpty }.joined(separator: "\n")
+            try? container.mainContext.save()
+        }
+    }
+
+    /// Short videos downloaded before transcription and on-screen text existed.
+    func analyzeMissing(in context: ModelContext) async {
+        let items = (try? context.fetch(FetchDescriptor<Item>())) ?? []
+        for item in items {
+            let files = ItemFiles(id: item.id)
+            let done = FileManager.default.fileExists(atPath: files.directory.appending(path: "screen.txt").path)
+            guard !done, MediaAnalyzer.shouldAnalyze(item, files: files), !(status[item.id]?.isActive ?? false) else { continue }
+            await analyzeShortVideo(item, files: files)
+            item.rebuildSearchText(extra: SearchIndex.extraText(for: item))
+            search?.index(item)
+            status[item.id] = .idle
+            onFinished?(item)
+        }
     }
 
     #endif
@@ -180,6 +206,11 @@ final class Downloader {
         if let a = meta.author, !a.isEmpty, !isThread { item.author = a }
         if let p = meta.publishedAt { item.publishedAt = p }
         if let d = meta.durationSeconds, item.durationSeconds == 0 { item.durationSeconds = d }
+        // A shared start time (Spotify's and YouTube's t=) is where listening picks up.
+        if item.position == 0, let t = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "t" })?.value,
+           let seconds = Double(t.trimmingCharacters(in: CharacterSet(charactersIn: "s"))) {
+            item.position = seconds
+        }
         // Instagram's page title is `Name on Instagram: "caption"`.
         if let t = meta.title, let caption = CaptionTitle.instagramCaption(fromPageTitle: t) {
             if item.details.isEmpty || item.details == meta.description { item.details = caption }

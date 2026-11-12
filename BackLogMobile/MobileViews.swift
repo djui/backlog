@@ -51,8 +51,12 @@ struct MobileList: View {
     @Query(sort: \Item.sortIndex) private var items: [Item]
     @State private var finishedTick = 0
     @State private var showSettings = false
+    @AppStorage("lengthFilter") private var length: LengthFilter = .any
+    @AppStorage("listSort") private var sort: ListSort = .manual
 
-    private var shown: [Item] {
+    private var shown: [Item] { Library.arrange(base, length: length, sort: sort) }
+
+    private var base: [Item] {
         switch section {
         case .upNext: items.filter { !$0.state.isFinished }
         case .history: items.filter(\.state.isFinished).sorted { ($0.consumedAt ?? $0.addedAt) > ($1.consumedAt ?? $1.addedAt) }
@@ -79,7 +83,7 @@ struct MobileList: View {
                     }
                     .contextMenu { menu(for: item) }
             }
-            .onMove(perform: section == .upNext ? { Library.move(shown, from: $0, to: $1, context: context) } : nil)
+            .onMove(perform: section == .upNext && sort == .manual && length == .any ? { Library.move(shown, from: $0, to: $1, context: context) } : nil)
         }
         .listStyle(.plain)
         .navigationTitle(section == .upNext ? "Up Next" : "History")
@@ -97,9 +101,28 @@ struct MobileList: View {
                         .accessibilityLabel("Add link")
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Picker("Length", selection: $length) {
+                        ForEach(LengthFilter.allCases) { Text($0.label).tag($0) }
+                    }
+                    Picker("Sort", selection: $sort) {
+                        ForEach(ListSort.allCases) { Text($0.label).tag($0) }
+                    }
+                } label: {
+                    Image(systemName: length == .any && sort == .manual ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                }
+                .accessibilityLabel("Filter and sort")
+            }
         }
         .overlay {
-            if shown.isEmpty {
+            if shown.isEmpty, length != .any, !base.isEmpty {
+                ContentUnavailableView {
+                    Label("Nothing \(length.label.lowercased())", systemImage: "line.3.horizontal.decrease.circle")
+                } actions: {
+                    Button("Show Any Length") { length = .any }
+                }
+            } else if shown.isEmpty {
                 ContentUnavailableView(section == .upNext ? "Nothing up next" : "No history yet",
                                        systemImage: section == .upNext ? "tray" : "clock",
                                        description: Text(section == .upNext ? "Share a link to BackLog from any app, or tap +." : "What you watch and read lands here."))
@@ -178,7 +201,7 @@ struct MobileThumbnail: View {
     private var placeholder: some View {
         ZStack {
             Rectangle().fill(.quaternary)
-            Image(systemName: item.kind.isPlayable ? "play.rectangle" : "doc.text").foregroundStyle(.secondary)
+            Image(systemName: item.kind.symbol).foregroundStyle(.secondary)
         }
     }
 }
@@ -202,7 +225,7 @@ struct MobileDetail: View {
                         .frame(maxWidth: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         .overlay {
-                            Image(systemName: item.kind.isPlayable ? "play.fill" : "book")
+                            Image(systemName: primarySymbol)
                                 .font(.title)
                                 .foregroundStyle(.white)
                                 .padding(20)
@@ -253,12 +276,14 @@ struct MobileDetail: View {
             .padding()
         }
         .navigationBarTitleDisplayMode(.inline)
+        // The item's actions take the bottom of the screen; the tab bar would cover them.
+        .toolbarVisibility(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItemGroup(placement: .bottomBar) {
                 if item.state.isFinished {
                     Button("Back to Up Next") { item.state = .queued; try? context.save() }
                 } else {
-                    Button(item.kind.isPlayable ? "Watched" : "Read", systemImage: "checkmark") { finish(.done) }
+                    Button(item.kind.doneLabel, systemImage: "checkmark") { finish(.done) }
                     Button("Skip", systemImage: "forward") { finish(.skipped) }
                 }
                 Spacer()
@@ -272,15 +297,27 @@ struct MobileDetail: View {
         .fullScreenCover(isPresented: $showReader) { MobileReader(item: item) }
     }
 
+    private var primarySymbol: String {
+        if ItemFiles(id: item.id).hasArticle { return "book" }
+        switch item.kind {
+        case .video, .reel: return "play.fill"
+        case .podcast: return "headphones"
+        case .music: return "music.note"
+        default: return "safari"
+        }
+    }
+
     private var primaryLabel: String {
         if ItemFiles(id: item.id).hasArticle { return "Read" }
-        return item.kind.isPlayable ? "Watch in \(item.siteName.isEmpty ? "the app" : item.siteName)" : "Open"
+        return item.kind.isTimed ? "\(item.kind.openVerb) in \(item.siteName.isEmpty ? "the app" : item.siteName)" : "Open"
     }
 
     private func primaryAction() {
         if ItemFiles(id: item.id).hasArticle { showReader = true; return }
         guard let url = item.url else { return }
-        if item.kind.isPlayable { openURL(timestampURL(item.position) ?? url) } else { present(url) }
+        if item.kind.isPlayable { openURL(timestampURL(item.position) ?? url) }
+        else if item.kind.isTimed { openURL(url) }  // Spotify, Apple Podcasts…: their own app, at the shared time.
+        else { present(url) }
     }
 
     /// YouTube links that start at a moment (opens the YouTube app there).
@@ -305,6 +342,7 @@ struct MobileDetail: View {
         var parts = [item.kind.label]
         if !item.author.isEmpty { parts.append(item.author) }
         if !item.durationText.isEmpty { parts.append(item.durationText) }
+        if item.kind == .podcast, item.position > 0 { parts.append("from \(Transcript.clock(item.position))") }
         parts.append("added " + item.addedAt.formatted(.relative(presentation: .named)))
         return parts.joined(separator: " · ")
     }

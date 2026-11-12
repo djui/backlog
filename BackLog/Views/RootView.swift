@@ -32,6 +32,12 @@ struct RootView: View {
     @Query(sort: \Item.sortIndex) private var items: [Item]
     @State private var section: LibrarySection? = .upNext
     @FocusState private var searchFocused: Bool
+    @State private var pendingRemoval: [Item] = []
+
+    private func perform(_ command: ItemCommand, on targets: [Item]) {
+        BatchActions.perform(command, on: targets, context: context, downloader: downloader)
+        if command == .remove { app.selected = [] }
+    }
 
     var body: some View {
         @Bindable var app = app
@@ -50,17 +56,19 @@ struct RootView: View {
         } content: {
             Group {
                 if !app.searchText.isEmpty {
-                    SearchResultsView(query: app.searchText, items: items, selection: $app.selection)
+                    SearchResultsView(query: app.searchText, items: items, selection: $app.selected)
                 } else if section == .skim {
                     SkimView(items: items, selection: $app.selection, section: $section)
                 } else {
-                    ItemListView(section: section ?? .upNext, items: items, selection: $app.selection)
+                    ItemListView(section: section ?? .upNext, items: items, selection: $app.selected)
                 }
             }
             .navigationSplitViewColumnWidth(min: 360, ideal: 440)
         } detail: {
             if let id = app.selection, let item = items.first(where: { $0.id == id }) {
                 DetailView(item: item).id(item.id)
+            } else if app.selected.count > 1 {
+                BatchPanel(items: items.filter { app.selected.contains($0.id) }) { app.command = $0 }
             } else {
                 ContentUnavailableView("Nothing selected", systemImage: "play.rectangle",
                                        description: Text("Paste a link with ⌘V, drop one here, or press ⌘N."))
@@ -74,10 +82,31 @@ struct RootView: View {
         }
         .searchable(text: $app.searchText, placement: .toolbar, prompt: "Search titles, captions, pictures, transcripts…")
         .searchFocused($searchFocused)
-        .onChange(of: app.toggleStarSelected) { _, on in
-            guard on else { return }
-            app.toggleStarSelected = false
-            if let id = app.selection, let item = items.first(where: { $0.id == id }) { item.starred.toggle() }
+        .onChange(of: app.command) { _, command in
+            guard let command else { return }
+            app.command = nil
+            let targets = items.filter { app.selected.contains($0.id) }
+            if command == .remove, targets.count > 1 {
+                pendingRemoval = targets
+            } else {
+                perform(command, on: targets)
+            }
+        }
+        .onChange(of: app.requestedSection) { _, index in
+            guard let index else { return }
+            app.requestedSection = nil
+            section = LibrarySection.allCases[index]
+            app.searchText = ""
+        }
+        .confirmationDialog("Remove \(pendingRemoval.count) items from your library?", isPresented: Binding(
+            get: { !pendingRemoval.isEmpty }, set: { if !$0 { pendingRemoval = [] } }
+        )) {
+            Button("Remove \(pendingRemoval.count) Items", role: .destructive) {
+                perform(.remove, on: pendingRemoval)
+                pendingRemoval = []
+            }
+        } message: {
+            Text("Their downloads, notes and summaries are deleted too. To keep them in History, mark them as done instead.")
         }
         .onChange(of: app.focusSearch) { _, focus in
             if focus { searchFocused = true; app.focusSearch = false }
@@ -100,7 +129,8 @@ struct RootView: View {
         switch section {
         case .upNext: items.filter { !$0.state.isFinished }.count
         case .downloading: items.filter { downloader.status(of: $0).isActive }.count
-        case .skim, .history: 0
+        case .history: items.filter(\.state.isFinished).count
+        case .skim: 0
         }
     }
 }

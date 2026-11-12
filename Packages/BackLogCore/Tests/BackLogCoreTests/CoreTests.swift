@@ -340,3 +340,59 @@ import Testing
         #expect(CaptionTitle.instagramCaption(fromPageTitle: "Some page") == nil)
     }
 }
+
+@Suite struct ListOptionsTests {
+    @Test func lengthBuckets() {
+        #expect(LengthFilter.under5.matches(seconds: 43))
+        #expect(!LengthFilter.under5.matches(seconds: 0))
+        #expect(LengthFilter.from5to15.matches(seconds: 600))
+        #expect(LengthFilter.over15.matches(seconds: 1120))
+        #expect(LengthFilter.any.matches(seconds: 0))
+    }
+
+    @Test func sortsByLengthWithUnknownLast() {
+        let items: [(Double, Double)] = [(0, 1), (600, 2), (40, 3), (1200, 4)]
+        let d = Date()
+        let shortest = items.sorted { ListSort.shortest.areInIncreasingOrder(seconds: $0.0, $1.0, added: d, d, manual: $0.1, $1.1) }.map(\.1)
+        let longest = items.sorted { ListSort.longest.areInIncreasingOrder(seconds: $0.0, $1.0, added: d, d, manual: $0.1, $1.1) }.map(\.1)
+        #expect(shortest == [3, 2, 4, 1])
+        #expect(longest == [4, 2, 3, 1])
+    }
+}
+
+@Suite struct SpotifyTests {
+    @Test func classifiesAndCanonicalizes() {
+        let url = URL(string: "https://open.spotify.com/episode/0jZjDghybB9p3QnZVXIhgq?si=-Afh&utm_source=native-share-menu&t=5726&pi=i9SS")!
+        #expect(SourceClassifier.kind(for: url) == .podcast)
+        #expect(SourceClassifier.kind(for: URL(string: "https://open.spotify.com/track/abc")!) == .music)
+        #expect(SourceClassifier.canonical(url).absoluteString == "https://open.spotify.com/episode/0jZjDghybB9p3QnZVXIhgq?t=5726")
+    }
+
+    @Test func parsesEpisodePage() {
+        let html = """
+        <head><meta property="og:site_name" content="Spotify"><meta name="description" content="Listen to this episode from The Joe Rogan Experience on Spotify. Jimmy Carr is a comedian.">
+        <meta name="music:duration" content="10235"><meta name="music:release_date" content="2026-10-28T19:00:00Z">
+        <meta property="og:title" content="#2571 - Jimmy Carr"><meta property="og:description" content="The Joe Rogan Experience · Episode"></head>
+        """
+        let m = LinkMetadata.parse(html: html, baseURL: URL(string: "https://open.spotify.com/episode/x")!)
+        #expect(m.title == "#2571 - Jimmy Carr")
+        #expect(m.author == "The Joe Rogan Experience")
+        #expect(m.durationSeconds == 10235)
+        #expect(m.publishedAt != nil)
+        #expect(m.description?.hasPrefix("Listen to this episode") == true)
+    }
+
+    @Test func noteDropsRepeatedLink() throws {
+        let link = try #require(SharedLink.parse("https://open.spotify.com/episode/x\nhttps://open.spotify.com/episode/x?si=1 Maybe good life advice"))
+        #expect(link.note == "Maybe good life advice")
+    }
+}
+
+@Suite struct VTTWriterTests {
+    @Test func roundTrips() {
+        let lines = [TranscriptLine(start: 0.5, text: "Preheat the oven."), TranscriptLine(start: 65.25, text: "Bake for 20 minutes.")]
+        let vtt = Transcript.vtt(lines)
+        #expect(vtt.contains("00:00:00.500 --> 00:01:05.250"))
+        #expect(Transcript.parseVTT(vtt) == lines)
+    }
+}

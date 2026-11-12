@@ -78,7 +78,7 @@ final class Item {
     /// "12:34" for videos, "12 min read" for pages.
     var durationText: String {
         guard durationSeconds > 0 else { return "" }
-        if !kind.isPlayable { return "\(max(1, Int((durationSeconds / 60).rounded()))) min read" }
+        if !kind.isTimed { return "\(max(1, Int((durationSeconds / 60).rounded()))) min read" }
         let total = Int(durationSeconds.rounded())
         let (h, m, s) = (total / 3600, total / 60 % 60, total % 60)
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
@@ -94,7 +94,7 @@ enum ItemState: String, Codable, CaseIterable {
         switch self {
         case .queued: "Up next"
         case .inProgress: "In progress"
-        case .done: kind.isPlayable ? "Watched" : "Read"
+        case .done: kind.doneLabel
         case .skimmed: "Skimmed"
         case .skipped: "Skipped"
         }
