@@ -81,7 +81,7 @@ struct DetailView: View {
                 case .transcript: TranscriptPanel(item: item, player: player)
                 }
             }
-            .inspectorColumnWidth(min: 260, ideal: 340, max: 460)
+            .inspectorColumnWidth(min: 240, ideal: 300, max: 440)
         }
         .toolbar {
             ToolbarItem {
@@ -140,26 +140,50 @@ struct ItemActions: View {
     let media: URL?
     @Environment(\.modelContext) private var context
 
+    /// Full labels when there's room; icons only (with tooltips) in a narrow window, instead of
+    /// buttons squeezed to nothing.
     var body: some View {
-        HStack {
+        ViewThatFits(in: .horizontal) {
+            row(compact: false)
+            row(compact: true)
+        }
+    }
+
+    private func row(compact: Bool) -> some View {
+        HStack(spacing: 8) {
             if item.state.isFinished {
-                Button("Back to Up Next") { item.state = .queued; try? context.save() }
+                action("Back to Up Next", "arrow.uturn.backward", compact) { item.state = .queued; try? context.save() }
             } else {
-                Button(item.kind.isPlayable ? "Mark as Watched" : "Mark as Read") { Library.finish(item, context: context) }
+                action(item.kind.isPlayable ? "Mark as Watched" : "Mark as Read", "checkmark", compact) { Library.finish(item, context: context) }
                     .buttonStyle(.borderedProminent)
-                Button("Skip") { Library.finish(item, as: .skipped, context: context) }
+                action("Skip", "forward", compact) { Library.finish(item, as: .skipped, context: context) }
             }
             Button {
                 item.starred.toggle()
                 try? context.save()
             } label: {
-                Image(systemName: item.starred ? "star.fill" : "star").foregroundStyle(item.starred ? .yellow : .secondary)
+                Label(item.starred ? "Unstar" : "Star", systemImage: item.starred ? "star.fill" : "star")
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(item.starred ? .yellow : .secondary)
             }
             .help(item.starred ? "Unstar (⌥⌘S)" : "Star: keep the download and find it easily (⌥⌘S)")
-            Spacer()
-            if let url = item.url { Button("Open Original") { NSWorkspace.shared.open(url) } }
-            if let media { Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([media]) } }
+            .fixedSize()
+            Spacer(minLength: compact ? 8 : 16)
+            if let url = item.url { action("Open Original", "safari", compact) { NSWorkspace.shared.open(url) } }
+            if let media { action("Show in Finder", "folder", compact) { NSWorkspace.shared.activateFileViewerSelecting([media]) } }
         }
+    }
+
+    private func action(_ title: String, _ symbol: String, _ compact: Bool, perform: @escaping () -> Void) -> some View {
+        Button(action: perform) {
+            if compact {
+                Label(title, systemImage: symbol).labelStyle(.iconOnly)
+            } else {
+                Label(title, systemImage: symbol).labelStyle(.titleOnly)
+            }
+        }
+        .help(title)
+        .fixedSize()
     }
 }
 
