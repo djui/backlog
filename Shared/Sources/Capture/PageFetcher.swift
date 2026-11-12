@@ -29,7 +29,7 @@ enum PageFetcher {
         request.setValue("en,de;q=0.8", forHTTPHeaderField: "Accept-Language")
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<400).contains(http.statusCode) {
-            throw Tools.Failure(message: "The page answered \(http.statusCode)")
+            throw ToolFailure(message: "The page answered \(http.statusCode)")
         }
         let encoding: String.Encoding = (response.textEncodingName?.lowercased().contains("8859") ?? false) ? .isoLatin1 : .utf8
         let text = String(data: data, encoding: encoding) ?? String(decoding: data, as: UTF8.self)

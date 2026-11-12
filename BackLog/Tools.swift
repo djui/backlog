@@ -16,10 +16,7 @@ enum Tools {
     static var ytdlp: URL? { find("yt-dlp") }
     static var ffmpeg: URL? { find("ffmpeg") }
 
-    struct Failure: Error, LocalizedError {
-        var message: String
-        var errorDescription: String? { message }
-    }
+    typealias Failure = ToolFailure
 
     /// Runs a tool, calling `onLine` for each stdout line, and returns all of stdout.
     /// Throws with stderr when it exits non-zero. Cancelling the task terminates the process.

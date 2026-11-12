@@ -30,20 +30,33 @@ targets:
         excludes:
           - "Info.plist"
           - "BackLog.entitlements"
+      - path: Shared/Sources
+        excludes:
+          - "SharedInbox.swift"
+      - Shared/Resources
       - Shared/AppIcon.icon
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.djui.BackLog
         PRODUCT_NAME: BackLog
         INFOPLIST_FILE: BackLog/Info.plist
-        CODE_SIGN_ENTITLEMENTS: BackLog/BackLog.entitlements
-        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_STYLE: Manual
         ENABLE_HARDENED_RUNTIME: YES
         COMBINE_HIDPI_IMAGES: YES
         LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
         GENERATE_INFOPLIST_FILE: NO
         SWIFT_STRICT_CONCURRENCY: minimal
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      # iCloud needs a profile: development for Debug (this Mac), Developer ID for releases.
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: BackLog/BackLog-Debug.entitlements
+          CODE_SIGN_IDENTITY: Apple Development
+          PROVISIONING_PROFILE_SPECIFIER: BackLog Mac Development
+        Release:
+          CODE_SIGN_ENTITLEMENTS: BackLog/BackLog.entitlements
+          CODE_SIGN_IDENTITY: Developer ID Application
+          PROVISIONING_PROFILE_SPECIFIER: BackLog Developer ID
     dependencies:
       - package: BackLogCore
       - package: Sparkle
@@ -64,8 +77,74 @@ targets:
         PRODUCT_NAME: BackLogShare
         INFOPLIST_FILE: BackLogShare/Info.plist
         CODE_SIGN_ENTITLEMENTS: BackLogShare/BackLogShare.entitlements
-        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_STYLE: Manual
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
         LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks @executable_path/../../../../Frameworks"
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: Apple Development
+        Release:
+          CODE_SIGN_IDENTITY: Developer ID Application
+  # iPhone and iPad: the same library through iCloud; videos open in their own apps.
+  BackLogMobile:
+    type: application
+    platform: iOS
+    sources:
+      - path: BackLogMobile
+        excludes:
+          - "Info.plist"
+          - "BackLogMobile.entitlements"
+      - Shared/Sources
+      - Shared/Resources
+      - Shared/AppIcon.icon
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.djui.BackLog
+        PRODUCT_NAME: BackLog
+        INFOPLIST_FILE: BackLogMobile/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BackLogMobile/BackLogMobile.entitlements
+        CODE_SIGN_STYLE: Manual
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_STRICT_CONCURRENCY: minimal
+      # Debug builds are for the simulator; Release goes to TestFlight.
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: ""
+          CODE_SIGNING_REQUIRED: NO
+        Release:
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: BackLog iOS App Store
+    dependencies:
+      - package: BackLogCore
+      - target: BackLogMobileShare
+  # WhatsApp, Messages, Safari › Share › BackLog.
+  BackLogMobileShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: BackLogMobileShare
+        excludes:
+          - "Info.plist"
+          - "BackLogMobileShare.entitlements"
+      - Shared/Sources/SharedInbox.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.djui.BackLog.Share
+        PRODUCT_NAME: BackLogMobileShare
+        INFOPLIST_FILE: BackLogMobileShare/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BackLogMobileShare/BackLogMobileShare.entitlements
+        CODE_SIGN_STYLE: Manual
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: ""
+          CODE_SIGNING_REQUIRED: NO
+        Release:
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: BackLog Share iOS App Store

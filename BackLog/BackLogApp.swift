@@ -19,15 +19,10 @@ struct BackLogApp: App {
         return SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
         #endif
     }()
-    @State private var app = AppState()
+    @State private var app: AppState
 
     init() {
-        let container: ModelContainer
-        do {
-            container = try ModelContainer(for: Item.self)
-        } catch {
-            fatalError("Couldn't open the library: \(error)")
-        }
+        let container = Persistence.makeContainer()
         self.container = container
         let downloader = Downloader(container: container)
         let summarizer = Summarizer(container: container)
@@ -133,29 +128,5 @@ struct BackLogApp: App {
     private func addFromClipboard() {
         let text = NSPasteboard.general.string(forType: .string) ?? ""
         app.report(Library.add(text: text, context: container.mainContext, downloader: downloader))
-    }
-}
-
-/// UI state shared between the menu commands and the window.
-@MainActor @Observable
-final class AppState {
-    var showAddSheet = false
-    var searchText = ""
-    var focusSearch = false
-    var toggleStarSelected = false
-    var selection: UUID?
-    var toast: String?
-
-    func report(_ result: Library.AddResult) {
-        switch result {
-        case .added(let item): selection = item.id; toast = "Added to Up Next"
-        case .duplicate(let item): selection = item.id; toast = "Already in your library — moved to Up Next"
-        case .noLink: toast = "No link found"
-        }
-        let message = toast
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2.5))
-            if self.toast == message { self.toast = nil }
-        }
     }
 }

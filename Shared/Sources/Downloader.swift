@@ -92,14 +92,19 @@ final class Downloader {
         do {
             switch item.kind {
             case .video, .reel:
+                #if os(macOS)
                 failure = try await captureMedia(item, url: url, files: files)
+                #else
+                // On iPhone, videos open in their own apps; their details come from the page.
+                try await capturePage(item, url: url, files: files)
+                #endif
             case .article, .thread, .link:
                 try await capturePage(item, url: url, files: files)
             }
         } catch is CancellationError {
             status[id] = .idle
             return
-        } catch let error as Tools.Failure {
+        } catch let error as ToolFailure {
             failure = YTDLP.friendlyError(error.message)
         } catch {
             failure = error.localizedDescription
@@ -109,6 +114,7 @@ final class Downloader {
         if failure == nil { onFinished?(item) }
     }
 
+    #if os(macOS)
     /// Videos and reels: yt-dlp for details and media. A reel yt-dlp can't get (sign-in walls)
     /// still gets its caption and image from the page. Returns a message when the media failed.
     private func captureMedia(_ item: Item, url: URL, files: ItemFiles) async throws -> String? {
@@ -118,7 +124,7 @@ final class Downloader {
         do {
             let json = try await Tools.run(ytdlp, YTDLP.metadataArguments(for: url))
             meta = try JSONDecoder().decode(YTDLPMetadata.self, from: Data(json.utf8))
-        } catch let error as Tools.Failure {
+        } catch let error as ToolFailure {
             try await capturePage(item, url: url, files: files)
             return item.kind == .reel ? "Couldn't download — saved the caption and picture" : YTDLP.friendlyError(error.message)
         }
@@ -148,6 +154,8 @@ final class Downloader {
         }
         return nil
     }
+
+    #endif
 
     /// Pages: Open Graph details and preview image; the readable article for articles and the
     /// article a Hacker News thread links to.
@@ -207,6 +215,7 @@ final class Downloader {
 
     static let siteNames = ["youtube": "YouTube", "instagram": "Instagram", "tiktok": "TikTok", "vimeo": "Vimeo", "twitch": "Twitch", "ted": "TED", "dailymotion": "Dailymotion"]
 
+    #if os(macOS)
     private func apply(_ meta: YTDLPMetadata, to item: Item) {
         if !meta.title.isEmpty { item.title = meta.title }
         if !meta.author.isEmpty { item.author = meta.author }
@@ -222,4 +231,5 @@ final class Downloader {
         item.capturedAt = .now
         try? container.mainContext.save()
     }
+    #endif
 }

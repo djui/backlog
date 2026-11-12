@@ -48,7 +48,7 @@ final class ToolManager {
         guard let source = Self.sources[name] else { return }
         try FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true)
         let (download, response) = try await URLSession.shared.download(from: source)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw Tools.Failure(message: "\(name): download failed") }
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw ToolFailure(message: "\(name): download failed") }
         let staging = Self.directory.appending(path: ".\(name).new")
         try? FileManager.default.removeItem(at: staging)
         if source.pathExtension == "zip" {
@@ -99,7 +99,7 @@ enum MediaJoiner {
             try out.insertTimeRange(CMTimeRange(start: .zero, duration: min(duration, audioDuration)), of: track, at: .zero)
         }
         guard let export = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
-            throw Tools.Failure(message: "Couldn't join video and audio")
+            throw ToolFailure(message: "Couldn't join video and audio")
         }
         try await export.export(to: output, as: .mp4)
         try? FileManager.default.removeItem(at: directory.appending(path: v))

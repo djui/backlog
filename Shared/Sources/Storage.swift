@@ -24,7 +24,12 @@ final class Preferences {
     }
 
     private init() {
-        policy = (defaults.data(forKey: "storagePolicy")).flatMap { try? JSONDecoder().decode(StoragePolicy.self, from: $0) } ?? StoragePolicy()
+        #if os(iOS)
+        let fallback = StoragePolicy.phone
+        #else
+        let fallback = StoragePolicy()
+        #endif
+        policy = (defaults.data(forKey: "storagePolicy")).flatMap { try? JSONDecoder().decode(StoragePolicy.self, from: $0) } ?? fallback
         exportFolder = defaults.string(forKey: "exportFolder").map { URL(fileURLWithPath: $0, isDirectory: true) }
         autoExport = defaults.object(forKey: "autoExport") as? Bool ?? true
         lastExport = defaults.object(forKey: "lastExport") as? Date
