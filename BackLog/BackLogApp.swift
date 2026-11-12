@@ -73,6 +73,7 @@ struct BackLogApp: App {
         .defaultSize(width: 1360, height: 820)
         .modelContainer(container)
         .commands {
+            ItemMenuCommands(app: app)
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updater?.checkForUpdates(nil) }
                     .disabled(updater == nil)
@@ -82,10 +83,6 @@ struct BackLogApp: App {
                     .keyboardShortcut("n")
                 Button("Add Link from Clipboard") { addFromClipboard() }
                     .keyboardShortcut("v", modifiers: [.command, .shift])
-            }
-            CommandGroup(after: .sidebar) {
-                Button("Star") { app.toggleStarSelected = true }
-                    .keyboardShortcut("s", modifiers: [.command, .option])
             }
             CommandGroup(after: .textEditing) {
                 Button("Search Library") { app.focusSearch = true }

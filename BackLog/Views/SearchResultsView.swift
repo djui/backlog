@@ -5,9 +5,10 @@ import SwiftUI
 struct SearchResultsView: View {
     let query: String
     let items: [Item]
-    @Binding var selection: UUID?
+    @Binding var selection: Set<UUID>
     @Environment(SearchIndex.self) private var search
     @Environment(Downloader.self) private var downloader
+    @Environment(AppState.self) private var app
     @State private var hits: [SearchIndex.Hit] = []
     @State private var kind: MediaKind?
 
@@ -26,6 +27,12 @@ struct SearchResultsView: View {
             }
         }
         .listStyle(.inset)
+        .contextMenu(forSelectionType: UUID.self) { ids in
+            ItemContextMenu(items: items.filter { ids.contains($0.id) }) { command in
+                app.selected = ids
+                app.command = command
+            }
+        }
         .navigationTitle("Search")
         .navigationSubtitle("\(shown.count) result\(shown.count == 1 ? "" : "s") for “\(query)”")
         .safeAreaInset(edge: .top) {
