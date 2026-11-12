@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 
 struct ItemListView: View {
     let section: LibrarySection
+    /// Showing one tag (from the sidebar) instead of a section: everything with it, any state.
+    var tag: String? = nil
     let items: [Item]
     @Binding var selection: Set<UUID>
     @Environment(\.modelContext) private var context
@@ -16,7 +18,8 @@ struct ItemListView: View {
     private var shown: [Item] { Library.arrange(base, length: length, sort: sort) }
 
     private var base: [Item] {
-        switch section {
+        if let tag { return items.filter { $0.hasTag(tag) } }
+        return switch section {
         case .upNext:
             items.filter { !$0.state.isFinished }
         case .starred:
@@ -49,7 +52,7 @@ struct ItemListView: View {
                 app.command = command
             }
         }
-        .navigationTitle(section.title)
+        .navigationTitle(tag.map { "#\($0)" } ?? section.title)
         .navigationSubtitle(subtitle(shown))
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
@@ -163,6 +166,17 @@ struct ItemRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 StatusLine(item: item, status: status)
+                let tags = item.tags
+                if !tags.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(tags.prefix(3), id: \.self) { tag in
+                            Text("#\(tag)").font(.caption2.weight(.medium))
+                                .padding(.horizontal, 6).padding(.vertical, 1)
+                                .background(Color.orange.opacity(0.18), in: Capsule())
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
             }
         }
         .padding(.vertical, 4)

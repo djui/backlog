@@ -96,6 +96,8 @@ private struct ItemHeader: View {
             Text(item.title).font(.title2.bold()).textSelection(.enabled)
             Text(meta).foregroundStyle(.secondary)
             SharedByCard(item: item)
+            ItemTagsEditor(item: item)
+                .textFieldStyle(.roundedBorder)
             if !item.details.isEmpty {
                 Text(item.details)
                     .font(.callout)

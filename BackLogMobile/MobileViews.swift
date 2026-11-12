@@ -50,8 +50,17 @@ struct MobileList: View {
     @State private var showSettings = false
     @AppStorage("lengthFilter") private var length: LengthFilter = .any
     @AppStorage("listSort") private var sort: ListSort = .manual
+    @AppStorage("tagFilter") private var tagFilter = ""
 
-    private var shown: [Item] { Library.arrange(base, length: length, sort: sort) }
+    private var shown: [Item] {
+        let tagged = tagFilter.isEmpty ? base : base.filter { $0.hasTag(tagFilter) }
+        return Library.arrange(tagged, length: length, sort: sort)
+    }
+
+    private var allTags: [String] {
+        var seen = Set<String>()
+        return items.flatMap(\.tags).filter { seen.insert($0.lowercased()).inserted }.sorted { $0.lowercased() < $1.lowercased() }
+    }
 
     private var base: [Item] {
         switch section {
@@ -80,7 +89,7 @@ struct MobileList: View {
                     }
                     .contextMenu { menu(for: item) }
             }
-            .onMove(perform: section == .upNext && sort == .manual && length == .any ? { Library.move(shown, from: $0, to: $1, context: context) } : nil)
+            .onMove(perform: section == .upNext && sort == .manual && length == .any && tagFilter.isEmpty ? { Library.move(shown, from: $0, to: $1, context: context) } : nil)
         }
         .listStyle(.plain)
         .navigationTitle(section == .upNext ? "Up Next" : "History")
@@ -100,6 +109,12 @@ struct MobileList: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    if !allTags.isEmpty {
+                        Picker("Tag", selection: $tagFilter) {
+                            Text("All Tags").tag("")
+                            ForEach(allTags, id: \.self) { Text("#\($0)").tag($0) }
+                        }
+                    }
                     Picker("Length", selection: $length) {
                         ForEach(LengthFilter.allCases) { Text($0.label).tag($0) }
                     }
@@ -107,13 +122,19 @@ struct MobileList: View {
                         ForEach(ListSort.allCases) { Text($0.label).tag($0) }
                     }
                 } label: {
-                    Image(systemName: length == .any && sort == .manual ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                    Image(systemName: length == .any && sort == .manual && tagFilter.isEmpty ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                 }
                 .accessibilityLabel("Filter and sort")
             }
         }
         .overlay {
-            if shown.isEmpty, length != .any, !base.isEmpty {
+            if shown.isEmpty, !tagFilter.isEmpty, !base.isEmpty {
+                ContentUnavailableView {
+                    Label("Nothing tagged #\(tagFilter)", systemImage: "number")
+                } actions: {
+                    Button("Show All Tags") { tagFilter = "" }
+                }
+            } else if shown.isEmpty, length != .any, !base.isEmpty {
                 ContentUnavailableView {
                     Label("Nothing \(length.label.lowercased())", systemImage: "line.3.horizontal.decrease.circle")
                 } actions: {
@@ -179,6 +200,17 @@ struct MobileRow: View {
                 if let takeaway = item.summary?.takeaway {
                     Text(takeaway).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
+                let tags = item.tags
+                if !tags.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(tags.prefix(3), id: \.self) { tag in
+                            Text("#\(tag)").font(.caption2.weight(.medium))
+                                .padding(.horizontal, 6).padding(.vertical, 1)
+                                .background(Color.orange.opacity(0.18), in: Capsule())
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
             }
         }
         .padding(.vertical, 2)
@@ -240,6 +272,9 @@ struct MobileDetail: View {
                     Text(item.title).font(.title2.bold())
                     Text(meta).font(.subheadline).foregroundStyle(.secondary)
                     SharedByCard(item: item)
+                    ItemTagsEditor(item: item)
+                        .padding(12)
+                        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
                 }
 
                 if let summary = item.summary {

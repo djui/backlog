@@ -7,9 +7,8 @@ struct SharedByCard: View {
     let item: Item
 
     var body: some View {
-        let tags = Tags.parse(item.note)
         let note = Tags.strip(item.note)
-        if !item.sharedBy.isEmpty || !note.isEmpty || !tags.isEmpty {
+        if !item.sharedBy.isEmpty || !note.isEmpty {
             HStack(alignment: .top, spacing: 10) {
                 Text(String(item.sharedBy.first ?? "✎").uppercased())
                     .font(.callout.weight(.bold))
@@ -24,9 +23,6 @@ struct SharedByCard: View {
                     if !note.isEmpty {
                         Text("“\(note)”").font(.body).textSelection(.enabled)
                     }
-                    if !tags.isEmpty {
-                        FlowLayout { ForEach(tags, id: \.self) { TagBubble(tag: $0) } }
-                    }
                 }
                 .font(.callout)
                 Spacer(minLength: 0)
@@ -34,5 +30,24 @@ struct SharedByCard: View {
             .padding(12)
             .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
         }
+    }
+}
+
+/// An item's tags as bubbles you can add to and remove from, saved as you go.
+struct ItemTagsEditor: View {
+    @Bindable var item: Item
+    @Environment(\.modelContext) private var context
+
+    var body: some View {
+        TagField(tags: Binding(
+            get: { item.tags },
+            set: { new in
+                let added = new.filter { !item.hasTag($0) }
+                item.tags = new
+                Recents.remember(tags: added)
+                item.rebuildSearchText()
+                try? context.save()
+            }
+        ))
     }
 }

@@ -56,6 +56,14 @@ final class Item {
 
     var summary: Summary? { Summary(json: summaryJSON) }
 
+    /// Tags, kept as #hashtags in the note so they sync without a separate field.
+    var tags: [String] {
+        get { Tags.parse(note) }
+        set { note = Tags.compose(note: Tags.strip(note), tags: newValue) }
+    }
+
+    func hasTag(_ tag: String) -> Bool { tags.contains { $0.caseInsensitiveCompare(tag) == .orderedSame } }
+
     /// The transcript: from this device's caption files, else the synced copy.
     var transcript: [TranscriptLine] {
         let local = ItemFiles(id: id).transcript

@@ -25,12 +25,27 @@ enum LibrarySection: String, Hashable, CaseIterable, Identifiable {
     }
 }
 
+/// What the sidebar shows: a library section or a tag.
+enum SidebarSelection: Hashable {
+    case section(LibrarySection)
+    case tag(String)
+}
+
 struct RootView: View {
     @Environment(\.modelContext) private var context
     @Environment(Downloader.self) private var downloader
     @Environment(AppState.self) private var app
     @Query(sort: \Item.sortIndex) private var items: [Item]
-    @State private var section: LibrarySection? = .upNext
+    @State private var sidebar: SidebarSelection? = .section(.upNext)
+    private var section: LibrarySection? { if case .section(let s) = sidebar { s } else { nil } }
+    private var selectedTag: String? { if case .tag(let t) = sidebar { t } else { nil } }
+
+    /// Every tag in the library with how many items have it, most used first.
+    private var tagCounts: [(String, Int)] {
+        var counts: [String: (String, Int)] = [:]
+        for item in items { for tag in item.tags { counts[tag.lowercased(), default: (tag, 0)].1 += 1 } }
+        return counts.values.sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.lowercased() < $1.0.lowercased() }
+    }
     @FocusState private var searchFocused: Bool
     @State private var pendingRemoval: [Item] = []
     @AppStorage("showPanel") private var showPanel = true
@@ -43,12 +58,22 @@ struct RootView: View {
     var body: some View {
         @Bindable var app = app
         NavigationSplitView {
-            List(selection: $section) {
+            List(selection: $sidebar) {
                 Section("Library") {
                     ForEach(LibrarySection.allCases) { s in
                         Label(s.title, systemImage: s.symbol)
                             .badge(count(for: s))
-                            .tag(s)
+                            .tag(SidebarSelection.section(s))
+                    }
+                }
+                let tags = tagCounts
+                if !tags.isEmpty {
+                    Section("Tags") {
+                        ForEach(tags, id: \.0) { tag, n in
+                            Label(tag, systemImage: "number")
+                                .badge(n)
+                                .tag(SidebarSelection.tag(tag))
+                        }
                     }
                 }
             }
@@ -59,7 +84,7 @@ struct RootView: View {
                 if !app.searchText.isEmpty {
                     SearchResultsView(query: app.searchText, items: items, selection: $app.selected)
                 } else {
-                    ItemListView(section: section ?? .upNext, items: items, selection: $app.selected)
+                    ItemListView(section: section ?? .upNext, tag: selectedTag, items: items, selection: $app.selected)
                 }
             }
             .navigationSplitViewColumnWidth(min: 360, ideal: 440)
@@ -98,7 +123,7 @@ struct RootView: View {
         .onChange(of: app.requestedSection) { _, index in
             guard let index else { return }
             app.requestedSection = nil
-            section = LibrarySection.allCases[index]
+            sidebar = .section(LibrarySection.allCases[index])
             app.searchText = ""
         }
         .confirmationDialog("Remove \(pendingRemoval.count) items from your library?", isPresented: Binding(
