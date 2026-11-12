@@ -15,6 +15,8 @@ final class AppState {
         switch result {
         case .added(let item): selection = item.id; toast = "Added to Up Next"
         case .duplicate(let item): selection = item.id; toast = "Already in your library — moved to Up Next"
+        case .imported(let added, let skipped):
+            toast = "Imported \(added) link\(added == 1 ? "" : "s")" + (skipped > 0 ? " · \(skipped) already saved" : "")
         case .noLink: toast = "No link found"
         }
         let message = toast
