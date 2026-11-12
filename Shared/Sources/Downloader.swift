@@ -186,6 +186,24 @@ final class Downloader {
     /// Pages: Open Graph details and preview image; the readable article for articles and the
     /// article a Hacker News thread links to.
     private func capturePage(_ item: Item, url: URL, files: ItemFiles) async throws {
+        // Video sites: oEmbed first. Their pages are often a consent wall (EU), so when oEmbed
+        // answers, the page isn't needed for YouTube, Vimeo and TikTok.
+        if let endpoint = OEmbed.endpoint(for: url), let o = try? await PageFetcher.json(OEmbed.self, from: endpoint) {
+            if let t = o.title, !t.isEmpty, CaptionTitle.isGeneric(item.title, author: item.author, url: item.urlString) { item.title = t }
+            if let a = o.authorName, !a.trimmingCharacters(in: .whitespaces).isEmpty { item.author = a.trimmingCharacters(in: .whitespaces) }
+            if let thumb = o.thumbnailURL.flatMap(URL.init(string:)), !FileManager.default.fileExists(atPath: files.thumbnail.path) {
+                await PageFetcher.image(thumb, to: files.thumbnail)
+                item.thumbnailURL = thumb.absoluteString
+            }
+            let host = SourceClassifier.normalizedHost(url)
+            if host != "open.spotify.com" {
+                if item.siteName.isEmpty { item.siteName = Self.siteNames[host.components(separatedBy: ".").first ?? ""] ?? item.siteName }
+                Library.improveTitle(item)
+                item.capturedAt = .now
+                try? container.mainContext.save()
+                return
+            }
+        }
         var pageURL = url
         if let hnID = HackerNews.itemID(from: url),
            let hn = try? await PageFetcher.json(HackerNews.Item.self, from: HackerNews.apiURL(for: hnID)) {
@@ -198,7 +216,9 @@ final class Downloader {
         }
 
         let (html, finalURL) = try await PageFetcher.html(pageURL)
-        let meta = LinkMetadata.parse(html: html, baseURL: finalURL)
+        var meta = LinkMetadata.parse(html: html, baseURL: finalURL)
+        // A consent or sign-in wall says nothing about the content.
+        if let t = meta.title, OEmbed.isWallTitle(t) { meta = LinkMetadata() }
         let isThread = item.kind == .thread
         if let t = meta.title, !t.isEmpty, !isThread || item.title == item.urlString { item.title = t }
         if let d = meta.description, !d.isEmpty, !isThread { item.details = d }

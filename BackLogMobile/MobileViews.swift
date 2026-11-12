@@ -147,6 +147,9 @@ struct MobileList: View {
         Button { item.starred.toggle(); try? context.save() } label: {
             Label(item.starred ? "Unstar" : "Star", systemImage: item.starred ? "star.slash" : "star")
         }
+        Button { Library.refresh(item, context: context, downloader: downloader) } label: {
+            Label("Refresh Details", systemImage: "arrow.clockwise")
+        }
     }
 }
 

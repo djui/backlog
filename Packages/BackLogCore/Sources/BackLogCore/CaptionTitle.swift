@@ -8,7 +8,7 @@ public enum CaptionTitle {
     public static func isGeneric(_ title: String, author: String = "", url: String = "") -> Bool {
         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = t.lowercased()
-        if t.isEmpty || t == url || lower == "instagram" || lower == "tiktok" { return true }
+        if t.isEmpty || t == url || lower == "instagram" || lower == "tiktok" || lower == "youtube" || OEmbed.isWallTitle(t) { return true }
         if !author.isEmpty, lower == author.lowercased() || lower == "@" + author.lowercased() { return true }
         for prefix in ["video by ", "post by ", "reel by ", "photo by ", "instagram post by ", "instagram video by "] where lower.hasPrefix(prefix) {
             return true

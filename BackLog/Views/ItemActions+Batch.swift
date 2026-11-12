@@ -23,6 +23,8 @@ enum BatchActions {
             for item in items where item.kind.isPlayable && ItemFiles(id: item.id).media == nil { downloader.enqueue(item, media: true) }
         case .deleteDownload:
             for item in items { downloader.cancel(item); ItemFiles(id: item.id).deleteMedia() }
+        case .refresh:
+            for item in items { Library.refresh(item, context: context, downloader: downloader) }
         case .openOriginal:
             for url in items.prefix(10).compactMap(\.url) { NSWorkspace.shared.open(url) }
         case .copyLink:
@@ -43,7 +45,7 @@ enum BatchActions {
         commands.append(.toggleStar)
         if items.contains(where: { $0.kind.isPlayable && ItemFiles(id: $0.id).media == nil }) { commands.append(.download) }
         if items.contains(where: { ItemFiles(id: $0.id).media != nil }) { commands.append(.deleteDownload) }
-        commands += [.openOriginal, .copyLink, .remove]
+        commands += [.refresh, .openOriginal, .copyLink, .remove]
         return commands
     }
 }
@@ -142,6 +144,7 @@ struct ItemMenuCommands: Commands {
                 button(.toggleStar, "Star / Unstar", "s", [.command, .option])
                 button(.download, "Download", "d", [.command, .option])
                 button(.deleteDownload, "Delete Download, Keep in Library", .delete, [.command, .option])
+                button(.refresh, "Refresh Details", "r", .command)
                 Divider()
                 button(.openOriginal, "Open Original", "o", .command)
                 button(.copyLink, "Copy Link", "c", [.command, .shift])

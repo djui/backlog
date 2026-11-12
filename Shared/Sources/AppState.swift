@@ -38,7 +38,7 @@ final class AppState {
 
 /// What can be done to the selected items, from the Item menu, shortcuts or the batch panel.
 enum ItemCommand: Equatable {
-    case markDone, skip, backToUpNext, toggleStar, download, deleteDownload, openOriginal, copyLink, remove
+    case markDone, skip, backToUpNext, toggleStar, download, deleteDownload, refresh, openOriginal, copyLink, remove
 
     var title: String {
         switch self {
@@ -48,6 +48,7 @@ enum ItemCommand: Equatable {
         case .toggleStar: "Star"
         case .download: "Download"
         case .deleteDownload: "Delete Download, Keep in Library"
+        case .refresh: "Refresh Details"
         case .openOriginal: "Open Original"
         case .copyLink: "Copy Link"
         case .remove: "Remove from Library…"
@@ -62,6 +63,7 @@ enum ItemCommand: Equatable {
         case .toggleStar: "star"
         case .download: "arrow.down.circle"
         case .deleteDownload: "externaldrive.badge.minus"
+        case .refresh: "arrow.clockwise"
         case .openOriginal: "safari"
         case .copyLink: "link"
         case .remove: "trash"

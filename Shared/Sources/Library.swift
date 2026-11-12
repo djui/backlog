@@ -75,6 +75,12 @@ enum Library {
         let items = (try? context.fetch(FetchDescriptor<Item>())) ?? []
         // Links saved before BackLog knew their kind (Spotify was "Article"): reclassify and
         // fetch their details again.
+        // Items whose details came from a consent wall ("Before you continue to YouTube"): fetch again.
+        for item in items where OEmbed.isWallTitle(item.title) || OEmbed.isWallTitle(item.details) {
+            item.title = item.urlString
+            item.details = ""
+            item.capturedAt = nil
+        }
         // Notes saved with the shared link repeated in them.
         for item in items where item.note.contains("http") {
             item.note = item.note.replacingOccurrences(of: #"https?://\S+"#, with: "", options: .regularExpression)
@@ -102,6 +108,17 @@ enum Library {
         return filtered.sorted {
             sort.areInIncreasingOrder(seconds: $0.durationSeconds, $1.durationSeconds, added: $0.addedAt, $1.addedAt, manual: $0.sortIndex, $1.sortIndex)
         }
+    }
+
+    /// Fetches an item's title, description and picture again (and reads the picture again).
+    static func refresh(_ item: Item, context: ModelContext, downloader: Downloader) {
+        if CaptionTitle.isGeneric(item.title, author: item.author, url: item.urlString) { item.title = item.urlString }
+        item.capturedAt = nil
+        item.imageLabels = ""
+        item.imageText = ""
+        try? FileManager.default.removeItem(at: ItemFiles(id: item.id).thumbnail)
+        try? context.save()
+        downloader.enqueue(item)
     }
 
     /// Set by the app: re-applies the storage rules after changes.
