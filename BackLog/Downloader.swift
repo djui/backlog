@@ -25,6 +25,8 @@ final class Downloader {
     private(set) var status: [UUID: DownloadStatus] = [:]
     var quality: DownloadQuality = .small
     var maxConcurrent = 2
+    /// Called when an item's files are complete, e.g. to summarize it.
+    @ObservationIgnored var onFinished: ((Item) -> Void)?
 
     @ObservationIgnored private var waiting: [PersistentIdentifier] = []
     @ObservationIgnored private var running: [UUID: Task<Void, Never>] = [:]
@@ -101,6 +103,7 @@ final class Downloader {
                 _ = try? await Tools.run(ytdlp, YTDLP.subtitleArguments(for: url, into: files.directory, language: meta.language))
             }
             status[id] = .idle
+            onFinished?(item)
         } catch is CancellationError {
             status[id] = .idle
         } catch let failure as Tools.Failure {

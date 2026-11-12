@@ -7,6 +7,7 @@ import SwiftUI
 struct BackLogApp: App {
     let container: ModelContainer
     @State private var downloader: Downloader
+    @State private var summarizer: Summarizer
     @State private var app = AppState()
 
     init() {
@@ -17,7 +18,11 @@ struct BackLogApp: App {
             fatalError("Couldn't open the library: \(error)")
         }
         self.container = container
-        _downloader = State(initialValue: Downloader(container: container))
+        let downloader = Downloader(container: container)
+        let summarizer = Summarizer(container: container)
+        downloader.onFinished = { summarizer.summarize($0) }
+        _downloader = State(initialValue: downloader)
+        _summarizer = State(initialValue: summarizer)
     }
 
     var body: some Scene {
@@ -25,8 +30,13 @@ struct BackLogApp: App {
             RootView()
                 .environment(downloader)
                 .environment(app)
-                .frame(minWidth: 860, minHeight: 520)
-                .task { downloader.resumePending(in: container.mainContext) }
+                .environment(summarizer)
+                .frame(minWidth: 960, minHeight: 600)
+                .task {
+                    downloader.resumePending(in: container.mainContext)
+                    summarizer.summarizeMissing()
+                    await summarizer.watchAvailability()
+                }
                 .onOpenURL(perform: handle)
         }
         .defaultSize(width: 1280, height: 800)

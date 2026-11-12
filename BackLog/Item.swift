@@ -23,6 +23,8 @@ final class Item {
     /// Playback position in seconds, or reading progress 0…1 for articles.
     var position: Double = 0
     var sortIndex: Double = 0
+    /// `Summary` as JSON; empty until summarized.
+    var summaryJSON: String = ""
 
     init(url: URL, kind: MediaKind, note: String = "", sortIndex: Double) {
         id = UUID()
@@ -35,6 +37,8 @@ final class Item {
         self.sortIndex = sortIndex
         addedAt = .now
     }
+
+    var summary: Summary? { Summary(json: summaryJSON) }
 
     var kind: MediaKind { MediaKind(rawValue: kindRaw) ?? .link }
     var url: URL? { URL(string: urlString) }
@@ -56,15 +60,16 @@ final class Item {
 }
 
 enum ItemState: String, Codable, CaseIterable {
-    case queued, inProgress, done, skipped
+    case queued, inProgress, done, skimmed, skipped
 
-    var isFinished: Bool { self == .done || self == .skipped }
+    var isFinished: Bool { self == .done || self == .skimmed || self == .skipped }
 
     func label(for kind: MediaKind) -> String {
         switch self {
         case .queued: "Up next"
         case .inProgress: "In progress"
         case .done: kind.isPlayable ? "Watched" : "Read"
+        case .skimmed: "Skimmed"
         case .skipped: "Skipped"
         }
     }

@@ -13,7 +13,7 @@ struct ItemListView: View {
 
     private var shown: [Item] {
         switch section {
-        case .upNext:
+        case .upNext, .skim:
             items.filter { !$0.state.isFinished }
         case .downloading:
             items.filter { s in
@@ -62,7 +62,7 @@ struct ItemListView: View {
 
     private var emptyTitle: String {
         switch section {
-        case .upNext: "Nothing up next"
+        case .upNext, .skim: "Nothing up next"
         case .downloading: "No downloads"
         case .history: "No history yet"
         }

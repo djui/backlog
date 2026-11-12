@@ -3,12 +3,13 @@ import SwiftData
 import SwiftUI
 
 enum LibrarySection: String, Hashable, CaseIterable, Identifiable {
-    case upNext, downloading, history
+    case upNext, skim, downloading, history
     var id: Self { self }
 
     var title: String {
         switch self {
         case .upNext: "Up Next"
+        case .skim: "Skim"
         case .downloading: "Downloading"
         case .history: "History"
         }
@@ -17,6 +18,7 @@ enum LibrarySection: String, Hashable, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .upNext: "list.bullet"
+        case .skim: "text.alignleft"
         case .downloading: "arrow.down.circle"
         case .history: "clock"
         }
@@ -45,8 +47,14 @@ struct RootView: View {
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
             .safeAreaInset(edge: .bottom) { StorageFooter(items: items) }
         } content: {
-            ItemListView(section: section ?? .upNext, items: items, selection: $app.selection)
-                .navigationSplitViewColumnWidth(min: 360, ideal: 440)
+            Group {
+                if section == .skim {
+                    SkimView(items: items, selection: $app.selection, section: $section)
+                } else {
+                    ItemListView(section: section ?? .upNext, items: items, selection: $app.selection)
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 360, ideal: 440)
         } detail: {
             if let id = app.selection, let item = items.first(where: { $0.id == id }) {
                 DetailView(item: item).id(item.id)
@@ -79,7 +87,7 @@ struct RootView: View {
         switch section {
         case .upNext: items.filter { !$0.state.isFinished }.count
         case .downloading: items.filter { downloader.status(of: $0).isActive }.count
-        case .history: 0
+        case .skim, .history: 0
         }
     }
 }

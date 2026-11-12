@@ -13,7 +13,7 @@ history of what you've consumed.
 
 ## Status
 
-Early. Milestone 1 (proof of concept): add links, download videos, play them, history.
+Early. M1: add links, download, play, history. M2: transcripts, on-device summaries (TL;DR → detailed), Skim mode.
 
 ## Build
 
