@@ -18,21 +18,9 @@ APP="$BUILD_DIR/BackLog.app"
 [[ -f Shared/AppIcon.icon/icon.json ]] || swift scripts/make_icons.swift
 xcodegen generate --quiet
 
-team="${DEVELOPMENT_TEAM:-}"
-if [[ -z "$team" ]]; then
-  team="$(security find-certificate -c "Apple Development" -p 2>/dev/null \
-    | openssl x509 -noout -subject 2>/dev/null \
-    | sed -n 's/.*OU *= *\([A-Z0-9]\{10\}\).*/\1/p' | head -1 || true)"
-fi
-
-signing_args=()
-if [[ -n "$team" ]]; then
-  echo "Signing with team $team" >&2
-  signing_args=(DEVELOPMENT_TEAM="$team" CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates)
-else
-  echo "No Apple Development identity found; signing ad-hoc (permissions must be re-granted after each install)" >&2
-  signing_args=(CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=)
-fi
+# Signing is manual (project.yml): Developer ID with the "BackLog Developer ID" profile, which
+# carries the iCloud entitlement.
+team=8DR8DB9W22
 
 rm -rf "$ARCHIVE" "$APP"
 mkdir -p "$BUILD_DIR"
@@ -44,7 +32,6 @@ xcodebuild \
   -derivedDataPath "$BUILD_DIR/DerivedData" \
   -archivePath "$ARCHIVE" \
   ARCHS=arm64 \
-  "${signing_args[@]}" \
   -quiet \
   archive
 
@@ -58,13 +45,16 @@ if [[ "$NOTARIZE" == 1 ]]; then
 <plist version="1.0">
 <dict>
   <key>method</key><string>developer-id</string>
-  <key>signingStyle</key><string>automatic</string>
+  <key>signingStyle</key><string>manual</string>
   <key>teamID</key><string>${team}</string>
+  <key>signingCertificate</key><string>Developer ID Application</string>
+  <key>provisioningProfiles</key>
+  <dict><key>com.djui.BackLog</key><string>BackLog Developer ID</string></dict>
 </dict>
 </plist>
 PLIST
   xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath "$BUILD_DIR" \
-    -exportOptionsPlist "$BUILD_DIR/ExportOptions.plist" -allowProvisioningUpdates -quiet
+    -exportOptionsPlist "$BUILD_DIR/ExportOptions.plist" -quiet
   ditto -c -k --keepParent "$APP" "$BUILD_DIR/BackLog-notarize.zip"
   xcrun notarytool submit "$BUILD_DIR/BackLog-notarize.zip" --keychain-profile "$NOTARY_PROFILE" --no-s3-acceleration --wait
   # Stapling fetches the ticket from Apple's CDN, which sometimes drops the connection; retry.

@@ -16,7 +16,7 @@ final class ToolManager {
     private(set) var state: State = .unknown
     private(set) var ytdlpVersion: String?
 
-    static let directory: URL = ItemFiles.root.deletingLastPathComponent().appending(path: "bin", directoryHint: .isDirectory)
+    nonisolated static let directory: URL = ItemFiles.root.deletingLastPathComponent().appending(path: "bin", directoryHint: .isDirectory)
 
     private static let sources: [String: URL] = [
         "yt-dlp": URL(string: "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos")!,

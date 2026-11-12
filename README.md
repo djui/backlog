@@ -1,6 +1,6 @@
 # BackLog
 
-Watch later, read later — offline. A Mac app (iPhone app to follow) that keeps everything you want
+Watch later, read later — offline. A Mac and iPhone app that keeps everything you want
 to watch or read in one queue, downloads what it can so it works offline, and keeps a permanent
 history of what you've consumed.
 
@@ -13,7 +13,7 @@ history of what you've consumed.
 
 ## Status
 
-Early. M1: add links, download, play, history. M2: transcripts, on-device summaries (TL;DR → detailed), Skim mode. M3: any link (articles saved offline, reels, Hacker News), preview images read with Vision, search by words and meaning (⌘F). M4: storage rules (download the next few, auto-delete watched, size limit), History export to Markdown + JSONL (for LifeLog), Settings, menu bar, Share menu, ⌥⌘L from any browser, stars.
+Early. M1–M5: the Mac app (links, offline video and articles, transcripts, on-device summaries, Skim, search by words and meaning, storage rules, History export, Share menu, ⌥⌘L, releases with Sparkle). M6: the iPhone app in TestFlight — the same list through iCloud, Share › BackLog from WhatsApp and Messages, videos open in their own apps (at the right moment), articles offline.
 
 ## Install
 
@@ -32,6 +32,12 @@ make run        # debug build and launch
 make install    # release build into /Applications
 make test       # core unit tests
 make release    # tests, notarized DMG, Sparkle appcast, GitHub release
+make testflight # archive the iPhone app and upload it to TestFlight
 ```
+
+Signing is manual: the profiles "BackLog Mac Development", "BackLog Developer ID", "BackLog iOS App
+Store" and "BackLog Share iOS App Store" (team 8DR8DB9W22) must be installed. The library syncs
+through the CloudKit container `iCloud.com.djui.BackLog`; deploy schema changes to production in
+the CloudKit Console before releasing.
 
 Add from anywhere with the URL scheme: `open "backlog://add?url=<url-encoded link>&from=Anna"`.
