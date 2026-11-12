@@ -253,6 +253,8 @@ struct MobileDetail: View {
             .padding()
         }
         .navigationBarTitleDisplayMode(.inline)
+        // The item's actions take the bottom of the screen; the tab bar would cover them.
+        .toolbarVisibility(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItemGroup(placement: .bottomBar) {
                 if item.state.isFinished {
