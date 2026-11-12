@@ -5,21 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>BackLog: watch later, read later — offline</title>
   <meta name="description" content="BackLog is a free Mac app that keeps everything you want to watch or read in one queue, downloads it for offline, summarizes it on your Mac and keeps a searchable history of everything you've seen.">
-  <link rel="canonical" href="https://djui.github.io/backlog/">
+  <link rel="canonical" href="https://uwe.social/backlog/">
   <meta name="color-scheme" content="light dark">
   <meta property="og:type" content="website">
   <meta property="og:title" content="BackLog: watch later, read later — offline">
   <meta property="og:description" content="One queue for videos, reels, articles and links. Offline, summarized on your Mac, searchable forever.">
-  <meta property="og:url" content="https://djui.github.io/backlog/">
-  <meta property="og:image" content="https://djui.github.io/backlog/assets/icon.png">
+  <meta property="og:url" content="https://uwe.social/backlog/">
+  <meta property="og:image" content="https://uwe.social/backlog/assets/icon.png">
   <link rel="icon" type="image/png" href="assets/icon.png">
   <style>
     :root {
-      --bg: #fbf8f4; --fg: #1d1c1a; --muted: #6b675f; --card: #ffffff; --line: #ece6dd; --accent: #d9622b;
+      --bg: #fbf8f4; --fg: #1d1c1a; --muted: #6b675f; --card: #ffffff; --line: #ece6dd; --accent: #b84e1c; --on-accent: #ffffff;
       color-scheme: light dark;
     }
     @media (prefers-color-scheme: dark) {
-      :root { --bg: #141312; --fg: #f2efe9; --muted: #a39d93; --card: #1e1d1b; --line: #2d2b28; --accent: #f08a4b; }
+      :root { --bg: #141312; --fg: #f2efe9; --muted: #a39d93; --card: #1e1d1b; --line: #2d2b28; --accent: #f08a4b; --on-accent: #1d1c1a; }
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
@@ -30,7 +30,7 @@
     .lede { font-size: 21px; color: var(--muted); margin: 0; max-width: 34em; }
     .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
     .button { display: inline-flex; align-items: center; height: 46px; padding: 0 22px; border-radius: 23px; font-weight: 600; text-decoration: none; }
-    .primary { background: var(--accent); color: #fff; }
+    .primary { background: var(--accent); color: var(--on-accent); }
     .secondary { border: 1px solid var(--line); color: var(--fg); background: var(--card); }
     .note { font-size: 14px; color: var(--muted); margin-top: 10px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 64px; }

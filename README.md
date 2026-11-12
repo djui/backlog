@@ -18,7 +18,7 @@ Early. M1: add links, download, play, history. M2: transcripts, on-device summar
 ## Install
 
 Download the DMG from the [latest release](https://github.com/djui/backlog/releases/latest)
-(macOS 26+, Apple silicon) — or see [djui.github.io/backlog](https://djui.github.io/backlog/).
+(macOS 26+, Apple silicon) — or see [uwe.social/backlog](https://uwe.social/backlog/).
 BackLog fetches yt-dlp (and deno, which yt-dlp needs for YouTube) on first use and keeps them
 current; Homebrew's copies are used when installed. ffmpeg is optional.
 
