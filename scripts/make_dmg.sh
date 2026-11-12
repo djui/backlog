@@ -22,8 +22,9 @@ hdiutil create -volname "BackLog $version" -srcfolder "$STAGE" -fs HFS+ -format 
 identity="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1 || true)"
 if [[ -n "$identity" ]]; then
   codesign --force --sign "$identity" --timestamp "$DMG"
-  if [[ -n "${NOTARY_PROFILE:-}" ]]; then
-    xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --no-s3-acceleration --wait
+  source scripts/notary.sh
+  if (( ${#notary_args[@]} )); then
+    xcrun notarytool submit "$DMG" "${notary_args[@]}" --no-s3-acceleration --wait
     # Stapling fetches the ticket from Apple's CDN, which sometimes drops the connection; retry.
     for attempt in 1 2 3 4 5; do xcrun stapler staple "$DMG" && break; [[ $attempt == 5 ]] && exit 1; sleep 10; done
   fi

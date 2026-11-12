@@ -21,8 +21,9 @@ gh auth status >/dev/null 2>&1 || { echo "gh is not authenticated; run: gh auth 
 export NOTARY_PROFILE="${NOTARY_PROFILE:-murmur}"
 security find-identity -v -p codesigning | grep -q "Developer ID Application" \
   || { echo "No Developer ID Application certificate in the keychain; releases must be notarized" >&2; exit 1; }
-xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 \
-  || { echo "notarytool profile \"$NOTARY_PROFILE\" doesn't work; run xcrun notarytool store-credentials $NOTARY_PROFILE" >&2; exit 1; }
+source scripts/notary.sh
+(( ${#notary_args[@]} )) \
+  || { echo "Neither notarytool profile \"$NOTARY_PROFILE\" nor an App Store Connect API key works" >&2; exit 1; }
 /usr/libexec/PlistBuddy -c 'Print SUPublicEDKey' BackLog/Info.plist >/dev/null 2>&1 \
   || { echo "Add SUPublicEDKey to BackLog/Info.plist first (see Sparkle's generate_keys)" >&2; exit 1; }
 

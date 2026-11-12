@@ -36,7 +36,8 @@ xcodebuild \
   archive
 
 if [[ "$NOTARIZE" == 1 ]]; then
-  : "${NOTARY_PROFILE:?Set NOTARY_PROFILE to a notarytool keychain profile (xcrun notarytool store-credentials)}"
+  source scripts/notary.sh
+  (( ${#notary_args[@]} )) || { echo "No notarytool profile or App Store Connect API key" >&2; exit 1; }
   security find-identity -v -p codesigning | grep -q "Developer ID Application" \
     || { echo "No Developer ID Application certificate in the keychain" >&2; exit 1; }
   cat >"$BUILD_DIR/ExportOptions.plist" <<PLIST
@@ -56,7 +57,7 @@ PLIST
   xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath "$BUILD_DIR" \
     -exportOptionsPlist "$BUILD_DIR/ExportOptions.plist" -quiet
   ditto -c -k --keepParent "$APP" "$BUILD_DIR/BackLog-notarize.zip"
-  xcrun notarytool submit "$BUILD_DIR/BackLog-notarize.zip" --keychain-profile "$NOTARY_PROFILE" --no-s3-acceleration --wait
+  xcrun notarytool submit "$BUILD_DIR/BackLog-notarize.zip" "${notary_args[@]}" --no-s3-acceleration --wait
   # Stapling fetches the ticket from Apple's CDN, which sometimes drops the connection; retry.
   for attempt in 1 2 3 4 5; do xcrun stapler staple "$APP" && break; [[ $attempt == 5 ]] && exit 1; sleep 10; done
   rm -f "$BUILD_DIR/BackLog-notarize.zip"
