@@ -5,6 +5,9 @@ import SwiftData
 /// Only the list syncs — titles, notes, states, summaries; downloaded files stay on each device.
 enum Persistence {
     static let cloudContainer = "iCloud.com.djui.BackLog"
+    /// Whether the library opened with iCloud. Without it (signed out, or an unsigned simulator
+    /// build without the entitlement) nothing may touch CloudKit directly.
+    private(set) static var isSyncing = false
 
     /// Debug builds sync with CloudKit's development environment, releases with production. They
     /// must never share a store: CloudKit sees two different histories, and Core Data answers
@@ -24,7 +27,10 @@ enum Persistence {
         try? FileManager.default.createDirectory(at: storeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         migrateDefaultStore()
         let synced = ModelConfiguration("BackLog", schema: schema, url: storeURL, cloudKitDatabase: .private(cloudContainer))
-        if let container = try? ModelContainer(for: schema, configurations: synced) { return container }
+        if let container = try? ModelContainer(for: schema, configurations: synced) {
+            isSyncing = true
+            return container
+        }
         // No iCloud (signed out, or a build without the entitlement): same store, local only.
         let local = ModelConfiguration("BackLog", schema: schema, url: storeURL, cloudKitDatabase: .none)
         do {

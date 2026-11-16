@@ -26,7 +26,6 @@ struct BackLogApp: App {
         self.container = container
         let downloader = Downloader(container: container)
         let summarizer = Summarizer(container: container)
-        downloader.onFinished = { summarizer.summarize($0) }
         let search = SearchIndex()
         downloader.search = search
         summarizer.onSummarized = { item in
@@ -36,6 +35,8 @@ struct BackLogApp: App {
         _search = State(initialValue: search)
         let storage = StorageManager(container: container, downloader: downloader)
         downloader.wantsMedia = { storage.wantsMedia($0) }
+        // A finished download may be one the iPhone asked for: upload it.
+        downloader.onFinished = { summarizer.summarize($0); storage.schedule() }
         Library.onChange = { storage.schedule() }
         self.storage = storage
         let app = AppState()

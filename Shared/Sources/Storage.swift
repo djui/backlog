@@ -1,4 +1,5 @@
 import BackLogCore
+import CoreData
 import Foundation
 import Observation
 import SwiftData
@@ -42,16 +43,29 @@ final class Preferences {
 
 /// Applies the storage rules: downloads what should be offline, frees what's no longer needed,
 /// and keeps the History export current. Runs on launch, every 30 minutes and after changes.
-@MainActor
+@MainActor @Observable
 final class StorageManager {
-    private let container: ModelContainer
-    private let downloader: Downloader
-    private let prefs = Preferences.shared
-    private var pending: Task<Void, Never>?
+    @ObservationIgnored private let container: ModelContainer
+    @ObservationIgnored private let downloader: Downloader
+    @ObservationIgnored private let prefs = Preferences.shared
+    @ObservationIgnored private var pending: Task<Void, Never>?
+    /// Videos between the Mac and the iPhone, through iCloud.
+    let mediaCloud = MediaCloud()
 
     init(container: ModelContainer, downloader: Downloader) {
         self.container = container
         self.downloader = downloader
+        mediaCloud.items = { (try? container.mainContext.fetch(FetchDescriptor<Item>())) ?? [] }
+        #if os(macOS)
+        mediaCloud.download = { item in
+            let status = downloader.status(of: item)
+            if !status.isActive, !Self.failed(status) { downloader.enqueue(item, media: true) }
+        }
+        #endif
+        // The other device changed the library (on the Mac: the iPhone asked for a video).
+        NotificationCenter.default.addObserver(forName: .NSPersistentStoreRemoteChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.schedule() }
+        }
     }
 
     /// Runs soon, coalescing bursts of changes.
@@ -79,14 +93,44 @@ final class StorageManager {
         let policy = prefs.policy
         downloader.quality = policy.quality
 
+        #if os(iOS)
+        // The iPhone can't download videos itself: it asks the Mac for them (MediaCloud).
+        let wanted = Set(policy.toDownload(candidates))
+        for id in policy.toDelete(candidates) {
+            ItemFiles(id: id).deleteMedia()
+            if let item = byID[id], item.mediaWanted, !wanted.contains(id) { item.mediaWanted = false }
+        }
+        for id in wanted where byID[id]?.mediaWanted == false { byID[id]?.mediaWanted = true }
+        if context.hasChanges { try? context.save() }
+        #else
         for id in policy.toDelete(candidates) { ItemFiles(id: id).deleteMedia() }
         for id in policy.toDownload(candidates) {
             if let item = byID[id], !downloader.status(of: item).isActive, !Self.failed(downloader.status(of: item)) {
                 downloader.enqueue(item, media: true)
             }
         }
+        #endif
+        mediaCloud.sync()
         if prefs.autoExport { exportHistory(items) }
     }
+
+    #if os(iOS)
+    /// The Download button: ask the Mac for it, and fetch it as soon as it's in iCloud.
+    func requestDownload(_ item: Item) {
+        mediaCloud.resetFailure(item)
+        item.mediaWanted = true
+        try? container.mainContext.save()
+        mediaCloud.sync()
+    }
+
+    /// Frees this iPhone's copy and tells the Mac it may free the iCloud one.
+    func removeDownload(_ item: Item) {
+        ItemFiles(id: item.id).deleteMedia()
+        item.mediaWanted = false
+        try? container.mainContext.save()
+        mediaCloud.sync()
+    }
+    #endif
 
     /// Whether the rules want this item's media now (Up Next position, mode).
     func wantsMedia(_ item: Item) -> Bool {
