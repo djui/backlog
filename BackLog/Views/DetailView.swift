@@ -90,33 +90,48 @@ private struct ItemHeader: View {
     @Bindable var item: Item
     let media: URL?
     @State private var showAllDetails = false
+    /// A comfortable line length for the description (about 75 characters), growing with text size.
+    @ScaledMetric(relativeTo: .callout) private var measure = 560
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(item.title).font(.title2.bold()).textSelection(.enabled)
-            Text(meta).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title).font(.title2.bold()).textSelection(.enabled)
+                Text(meta).font(.callout).foregroundStyle(.secondary)
+            }
             SharedByCard(item: item)
             ItemTagsEditor(item: item)
-                .textFieldStyle(.roundedBorder)
-            if !item.details.isEmpty {
-                Text(item.details)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(showAllDetails ? nil : 4)
-                    .textSelection(.enabled)
-                // A real button instead of a hidden tap on the text, so the keyboard and VoiceOver reach it.
-                // Long descriptions only; short ones show in full anyway.
-                if item.details.count > 280 {
-                    Button(showAllDetails ? "Less" : "More") { showAllDetails.toggle() }
-                        .buttonStyle(.link)
-                        .font(.callout)
+                .frame(maxWidth: measure, alignment: .leading)
+            if !item.details.isEmpty || !item.imageLabels.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    if !item.details.isEmpty {
+                        Text(item.details)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineSpacing(2)
+                            .lineLimit(showAllDetails ? nil : 4)
+                            .textSelection(.enabled)
+                        // A real button instead of a hidden tap on the text, so the keyboard and VoiceOver reach it.
+                        // Long descriptions only; short ones show in full anyway.
+                        if item.details.count > 280 {
+                            Button(showAllDetails ? "Less" : "More") { showAllDetails.toggle() }
+                                .buttonStyle(.link)
+                                .font(.callout)
+                        }
+                    }
+                    if !item.imageLabels.isEmpty {
+                        Text("Pictured: \(item.imageLabels)").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
-            }
-            if !item.imageLabels.isEmpty {
-                Text("In the picture: \(item.imageLabels)").font(.caption).foregroundStyle(.secondary)
+                .frame(maxWidth: measure, alignment: .leading)
             }
         }
-        ItemActions(item: item, media: media)
+        // Keeps the tag suggestions above the action row below.
+        .zIndex(1)
+        VStack(alignment: .leading, spacing: 12) {
+            Divider()
+            ItemActions(item: item, media: media)
+        }
     }
 
     private var meta: String {
@@ -167,8 +182,9 @@ struct ItemActions: View {
             .help(item.starred ? "Unstar (⌥⌘S)" : "Star: keep the download and find it easily (⌥⌘S)")
             .fixedSize()
             Spacer(minLength: compact ? 8 : 16)
-            if let url = item.url { action("Open Original", "safari", compact) { NSWorkspace.shared.open(url) } }
-            if let media { action("Show in Finder", "folder", compact) { NSWorkspace.shared.activateFileViewerSelecting([media]) } }
+            // Secondary destinations: icons with tooltips, so the row leads with what you do next.
+            if let url = item.url { action("Open Original", "safari", true) { NSWorkspace.shared.open(url) } }
+            if let media { action("Show in Finder", "folder", true) { NSWorkspace.shared.activateFileViewerSelecting([media]) } }
         }
     }
 

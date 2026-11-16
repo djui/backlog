@@ -109,6 +109,14 @@ struct TagField: View {
     @State private var draft = ""
 
     var body: some View {
+        #if os(macOS)
+        TokenTagField(tags: $tags)
+        #else
+        stacked
+        #endif
+    }
+
+    private var stacked: some View {
         VStack(alignment: .leading, spacing: 8) {
             TextField("Add tag", text: $draft)
                 .onSubmit(commit)
@@ -141,3 +149,145 @@ struct TagField: View {
         tags.append(tag)
     }
 }
+
+#if os(macOS)
+/// Mac: the chosen tags sit inside the field as bubbles, like recipients in Mail. Earlier tags
+/// drop down below the field only while it has focus, instead of always taking a row of their
+/// own. Up and down move through them, return picks one, escape closes the list, and delete in
+/// an empty field removes the last tag.
+struct TokenTagField: View {
+    @Binding var tags: [String]
+    @State private var draft = ""
+    @State private var highlighted: Int?
+    @State private var listClosed = false
+    @FocusState private var focused: Bool
+    @State private var fieldHeight: CGFloat = 0
+    /// Watches for backspace in an empty field, which the text field itself swallows.
+    @State private var backspaceMonitor: Any?
+
+    private var suggestions: [String] {
+        guard focused, !listClosed else { return [] }
+        return Suggestions.rank(Recents.tags, typed: draft, excluding: tags, limit: 6)
+    }
+
+    var body: some View {
+        let shown = suggestions
+        FlowLayout(spacing: 4) {
+            ForEach(tags, id: \.self) { tag in
+                TagBubble(tag: tag) { tags.removeAll { $0 == tag } }
+            }
+            TextField(tags.isEmpty ? "Add tag" : "Add another", text: $draft)
+                .textFieldStyle(.plain)
+                .focused($focused)
+                .frame(minWidth: 120)
+                .padding(.vertical, 3)
+                .accessibilityLabel("Add tag")
+                .onSubmit {
+                    if let highlighted, shown.indices.contains(highlighted) { add(shown[highlighted]) } else { commit() }
+                    focused = true
+                }
+                .onChange(of: draft) { _, new in
+                    listClosed = false
+                    // Typing narrows the list, so the best match is ready for return.
+                    highlighted = new.isEmpty ? nil : 0
+                    // A comma or space after a word also makes it a tag.
+                    if new.hasSuffix(",") || (new.hasSuffix(" ") && !new.trimmingCharacters(in: .whitespaces).isEmpty) { commit() }
+                }
+                .onKeyPress(.downArrow) { move(1, in: shown) }
+                .onKeyPress(.upArrow) { move(-1, in: shown) }
+                .onKeyPress(.escape) {
+                    guard !shown.isEmpty else { return .ignored }
+                    listClosed = true
+                    return .handled
+                }
+        }
+        .padding(.horizontal, 5).padding(.vertical, 3)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(focused ? Color.accentColor.opacity(0.6) : Color(nsColor: .separatorColor), lineWidth: focused ? 2 : 1)
+        }
+        // A click anywhere in the box, not just on the text, starts typing.
+        .contentShape(Rectangle())
+        .onTapGesture { focused = true }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fieldHeight = $0 }
+        .overlay(alignment: .topLeading) {
+            if !shown.isEmpty {
+                SuggestionList(values: shown, highlighted: highlighted) { add($0); focused = true }
+                    .offset(y: fieldHeight + 4)
+            }
+        }
+        .onChange(of: focused) { _, isFocused in
+            if !isFocused { highlighted = nil }
+            watchBackspace(isFocused)
+        }
+        .onDisappear { watchBackspace(false) }
+        // Lifts the list above whatever comes below the field.
+        .zIndex(1)
+    }
+
+    private func watchBackspace(_ on: Bool) {
+        if let backspaceMonitor { NSEvent.removeMonitor(backspaceMonitor) }
+        backspaceMonitor = nil
+        guard on else { return }
+        backspaceMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // 51 is the backspace key; with modifiers it means something else (⌘⌫ and so on).
+            guard event.keyCode == 51, event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
+                  draft.isEmpty, !tags.isEmpty else { return event }
+            tags.removeLast()
+            return nil
+        }
+    }
+
+    private func move(_ step: Int, in shown: [String]) -> KeyPress.Result {
+        guard !shown.isEmpty else { return .ignored }
+        listClosed = false
+        let next = (highlighted ?? (step > 0 ? -1 : shown.count)) + step
+        highlighted = min(max(next, 0), shown.count - 1)
+        return .handled
+    }
+
+    private func add(_ tag: String) {
+        if !tags.contains(where: { $0.lowercased() == tag.lowercased() }) { tags.append(tag) }
+        draft = ""
+        highlighted = nil
+    }
+
+    private func commit() {
+        let tag = draft.trimmingCharacters(in: CharacterSet(charactersIn: " ,#")).replacingOccurrences(of: " ", with: "-")
+        draft = ""
+        guard !tag.isEmpty else { return }
+        add(tag)
+    }
+}
+
+/// The drop-down under the Mac tag field: earlier tags, the highlighted one filled with the accent.
+private struct SuggestionList: View {
+    let values: [String]
+    let highlighted: Int?
+    let pick: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(values.enumerated()), id: \.element) { index, value in
+                Button { pick(value) } label: {
+                    Text("#\(value)")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .foregroundStyle(index == highlighted ? Color.white : Color.primary)
+                        .background(index == highlighted ? Color.accentColor : .clear, in: RoundedRectangle(cornerRadius: 4))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add tag \(value)")
+            }
+        }
+        .padding(4)
+        .frame(width: 220)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(Color(nsColor: .separatorColor)) }
+        .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+    }
+}
+#endif
