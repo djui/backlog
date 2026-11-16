@@ -9,7 +9,7 @@ struct BackLogMobileApp: App {
     @State private var summarizer: Summarizer
     @State private var search: SearchIndex
     @State private var app = AppState()
-    private let storage: StorageManager
+    @State private var storage: StorageManager
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -21,7 +21,7 @@ struct BackLogMobileApp: App {
         let storage = StorageManager(container: container, downloader: downloader)
         downloader.search = search
         downloader.onFinished = { summarizer.summarize($0) }
-        downloader.wantsMedia = { _ in false }  // Videos play in their own apps on iPhone.
+        downloader.wantsMedia = { _ in false }  // Videos come from the Mac, through iCloud (MediaCloud).
         summarizer.onSummarized = { item in
             item.rebuildSearchText(extra: SearchIndex.extraText(for: item))
             search.index(item)
@@ -30,7 +30,7 @@ struct BackLogMobileApp: App {
         _downloader = State(initialValue: downloader)
         _summarizer = State(initialValue: summarizer)
         _search = State(initialValue: search)
-        self.storage = storage
+        _storage = State(initialValue: storage)
     }
 
     var body: some Scene {
@@ -40,6 +40,8 @@ struct BackLogMobileApp: App {
                 .environment(summarizer)
                 .environment(search)
                 .environment(app)
+                .environment(storage)
+                .environment(storage.mediaCloud)
                 .tint(.orange)
                 .onOpenURL(perform: handle)
                 .task {
@@ -48,6 +50,7 @@ struct BackLogMobileApp: App {
                     Recents.seed(from: container.mainContext)
                     downloader.resumePending(in: container.mainContext)
                     captureArticlesForOffline()
+                    storage.run()
                     search.indexMissing((try? container.mainContext.fetch(FetchDescriptor<Item>())) ?? [])
                     summarizer.summarizeMissing()
                     await summarizer.watchAvailability()

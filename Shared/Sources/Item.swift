@@ -41,6 +41,9 @@ final class Item {
     var transcriptJSON: String = ""
     /// Starred items keep their downloads regardless of the storage rules.
     var starred: Bool = false
+    /// The iPhone wants this video offline: the Mac downloads it and puts a copy in iCloud
+    /// (`MediaCloud`), which the iPhone fetches. Set and cleared by the iPhone.
+    var mediaWanted: Bool = false
 
     init(url: URL, kind: MediaKind, note: String = "", sortIndex: Double) {
         id = UUID()

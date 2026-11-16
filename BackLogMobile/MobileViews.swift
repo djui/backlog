@@ -1,3 +1,4 @@
+import AVKit
 import BackLogCore
 import SafariServices
 import SwiftData
@@ -254,6 +255,10 @@ struct MobileRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     if item.starred { Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow).accessibilityLabel("Starred") }
+                    if item.kind.isPlayable, ItemFiles(id: item.id).media != nil {
+                        Image(systemName: "arrow.down.circle.fill").font(.caption2).foregroundStyle(.secondary)
+                            .accessibilityLabel("Downloaded")
+                    }
                     Text(item.title).font(.subheadline.weight(.semibold)).lineLimit(2)
                 }
                 Text([item.kind.label, item.author.isEmpty ? item.siteName : item.author, item.sharedBy.isEmpty ? "" : "from \(item.sharedBy)"]
@@ -290,7 +295,9 @@ struct MobileDetail: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("summaryLength") private var length: SummaryLength = .keyPoints
+    @Environment(MediaCloud.self) private var mediaCloud
     @State private var showReader = false
+    @State private var showPlayer = false
     @State private var showTranscript = false
     /// Timestamp columns grow with the text size, so "1:02:03" never truncates.
     @ScaledMetric(relativeTo: .callout) private var pointClockWidth = 50
@@ -324,6 +331,9 @@ struct MobileDetail: View {
                         .padding(12)
                         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
                 }
+
+                // Watched videos aren't passed on any more; one still here can be removed.
+                if item.kind.isPlayable, !item.state.isFinished || localMedia != nil { MobileDownloadRow(item: item) }
 
                 if let summary = item.summary {
                     VStack(alignment: .leading, spacing: 12) {
@@ -401,9 +411,19 @@ struct MobileDetail: View {
         }
         .sensoryFeedback(.success, trigger: tick)
         .fullScreenCover(isPresented: $showReader) { MobileReader(item: item) }
+        .fullScreenCover(isPresented: $showPlayer) {
+            if let file = localMedia { MobilePlayer(item: item, file: file) }
+        }
+    }
+
+    /// The video on this iPhone, fetched from iCloud. Re-read when a download finishes.
+    private var localMedia: URL? {
+        _ = mediaCloud.status(of: item)
+        return item.kind.isPlayable ? ItemFiles(id: item.id).media : nil
     }
 
     private var primarySymbol: String {
+        if localMedia != nil { return "play.fill" }
         if ItemFiles(id: item.id).hasArticle { return "book" }
         switch item.kind {
         case .video, .reel: return "play.fill"
@@ -414,11 +434,13 @@ struct MobileDetail: View {
     }
 
     private var primaryLabel: String {
+        if localMedia != nil { return "Play" }
         if ItemFiles(id: item.id).hasArticle { return "Read" }
         return item.kind.isTimed ? "\(item.kind.openVerb) in \(item.siteName.isEmpty ? "the app" : item.siteName)" : "Open"
     }
 
     private func primaryAction() {
+        if localMedia != nil { showPlayer = true; return }
         if ItemFiles(id: item.id).hasArticle { showReader = true; return }
         guard let url = item.url else { return }
         if item.kind.isPlayable { openURL(timestampURL(item.position) ?? url) }
@@ -603,14 +625,24 @@ struct MobileAddSheet: View {
 struct MobileSettings: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable private var prefs = Preferences.shared
+    @Environment(StorageManager.self) private var storage
+
+    private var autoVideos: Binding<Bool> {
+        Binding { prefs.policy.autoDownload != .manual } set: { prefs.policy.autoDownload = $0 ? .upNext : .manual }
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Stepper("Keep the next \(prefs.policy.downloadAhead) articles offline", value: $prefs.policy.downloadAhead, in: 1...20)
+                    Toggle("Download the next videos", isOn: autoVideos)
+                    Stepper("Keep the next \(prefs.policy.downloadAhead) offline", value: $prefs.policy.downloadAhead, in: 1...20)
+                    Picker("Storage limit", selection: $prefs.policy.limitBytes) {
+                        ForEach([2, 5, 10, 20], id: \.self) { gb in Text("\(gb) GB").tag(Int64?.some(Int64(gb) * 1_000_000_000)) }
+                        Text("No limit").tag(Int64?.none)
+                    }
                 } header: { Text("On this \(UIDevice.current.model)") } footer: {
-                    Text("Videos and reels open in their own apps. Your list, notes and summaries sync with your other devices through iCloud; downloads stay on each device.")
+                    Text("Your Mac downloads the videos and passes them on through iCloud, so it needs to be on now and then; they’re deleted from iCloud once watched, and from this \(UIDevice.current.model) right after. Without a download, videos open in their own apps. The next \(prefs.policy.downloadAhead * 4) articles are always kept offline.")
                 }
                 Section("Summaries") {
                     if let reason = Summarizer.unavailableReason { Label(reason, systemImage: "exclamationmark.triangle") }
@@ -623,6 +655,122 @@ struct MobileSettings: View {
             }
             .navigationTitle("Settings")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .onChange(of: prefs.policy) { storage.schedule() }
         }
+    }
+}
+
+// MARK: - Offline videos
+
+/// Download state of a video on this iPhone: get it from iCloud (via the Mac), watch it, free it.
+struct MobileDownloadRow: View {
+    let item: Item
+    @Environment(StorageManager.self) private var storage
+    @Environment(MediaCloud.self) private var mediaCloud
+
+    var body: some View {
+        HStack(spacing: 12) {
+            content
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
+        .animation(.snappy, value: mediaCloud.status(of: item))
+    }
+
+    @ViewBuilder private var content: some View {
+        let status = mediaCloud.status(of: item)
+        if case .downloading(let fraction) = status {
+            ProgressView(value: fraction) {
+                Text("Downloading…").font(.subheadline)
+            }
+        } else if let media = ItemFiles(id: item.id).media {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("On this iPhone").font(.subheadline.weight(.semibold))
+                    Text(size(of: media)).font(.caption).foregroundStyle(.secondary)
+                }
+            } icon: { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
+            Spacer()
+            Button("Remove", role: .destructive) { storage.removeDownload(item) }
+                .buttonStyle(.bordered)
+        } else if case .failed(let message) = status {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Couldn’t download").font(.subheadline.weight(.semibold))
+                    Text(message).font(.caption).foregroundStyle(.secondary)
+                }
+            } icon: { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
+            Spacer()
+            Button("Try Again") { storage.requestDownload(item) }.buttonStyle(.bordered)
+        } else if item.mediaWanted {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Waiting for your Mac").font(.subheadline.weight(.semibold))
+                    Text("It downloads the video and passes it on through iCloud.").font(.caption).foregroundStyle(.secondary)
+                }
+            } icon: { Image(systemName: "macbook.and.iphone").foregroundStyle(.secondary) }
+            Spacer()
+            Button("Cancel") { storage.removeDownload(item) }.buttonStyle(.bordered)
+        } else {
+            Button {
+                storage.requestDownload(item)
+            } label: {
+                Label("Download for Offline", systemImage: "arrow.down.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    private func size(of file: URL) -> String {
+        let bytes = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        return ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+    }
+}
+
+/// A downloaded video, full screen: resumes where it was left, saves the position, and marks
+/// it watched at the end (the same `PlayerController` as on the Mac).
+struct MobilePlayer: View {
+    let item: Item
+    let file: URL
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @State private var controller = PlayerController()
+
+    var body: some View {
+        PlayerViewController(player: controller.player)
+            .ignoresSafeArea()
+            .overlay(alignment: .topLeading) {
+                Button("Done", systemImage: "xmark") { dismiss() }
+                    .labelStyle(.iconOnly)
+                    .font(.title3)
+                    .padding(12)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .padding()
+            }
+            .onAppear {
+                try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+                controller.load(item, file: file, context: context)
+                controller.player.play()
+            }
+            .onDisappear { controller.unload() }
+            .onChange(of: item.state.isFinished) { _, finished in if finished { dismiss() } }
+    }
+}
+
+/// AVKit's player: native controls, speed, Picture in Picture, AirPlay.
+private struct PlayerViewController: UIViewControllerRepresentable {
+    let player: AVPlayer
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let controller = AVPlayerViewController()
+        controller.player = player
+        controller.canStartPictureInPictureAutomaticallyFromInline = true
+        return controller
+    }
+
+    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
+        if controller.player !== player { controller.player = player }
     }
 }

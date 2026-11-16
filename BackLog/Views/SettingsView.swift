@@ -59,7 +59,7 @@ private struct StorageSettings: View {
             Section("Disk usage") {
                 UsageBar(usage: usage, limit: prefs.policy.limitBytes)
             }
-            Section("Downloads") {
+            Section {
                 Picker("Size", selection: $prefs.policy.quality) {
                     ForEach(DownloadQuality.allCases, id: \.self) { q in
                         Text("\(q.label) · ≈\(Int(q.megabytesPerMinute)) MB/min").tag(q)
@@ -73,6 +73,11 @@ private struct StorageSettings: View {
                 if prefs.policy.autoDownload == .upNext {
                     Stepper("Keep the next \(prefs.policy.downloadAhead) offline", value: $prefs.policy.downloadAhead, in: 1...30)
                 }
+            } header: {
+                Text("Downloads")
+            } footer: {
+                Text("Videos your iPhone asks for are downloaded here and passed on through iCloud; they're removed from iCloud once watched.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section {
                 Picker("Watched videos", selection: $prefs.policy.deleteWatchedAfterDays) {
