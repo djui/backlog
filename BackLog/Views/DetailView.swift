@@ -104,10 +104,16 @@ private struct ItemHeader: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(showAllDetails ? nil : 4)
                     .textSelection(.enabled)
-                    .onTapGesture { showAllDetails.toggle() }
+                // A real button instead of a hidden tap on the text, so the keyboard and VoiceOver reach it.
+                // Long descriptions only; short ones show in full anyway.
+                if item.details.count > 280 {
+                    Button(showAllDetails ? "Less" : "More") { showAllDetails.toggle() }
+                        .buttonStyle(.link)
+                        .font(.callout)
+                }
             }
             if !item.imageLabels.isEmpty {
-                Text("In the picture: \(item.imageLabels)").font(.caption).foregroundStyle(.tertiary)
+                Text("In the picture: \(item.imageLabels)").font(.caption).foregroundStyle(.secondary)
             }
         }
         ItemActions(item: item, media: media)
@@ -186,6 +192,7 @@ struct SummaryPanel: View {
     let seek: (Double) -> Void
     @Environment(Summarizer.self) private var summarizer
     @AppStorage("summaryLength") private var length: SummaryLength = .keyPoints
+    @ScaledMetric(relativeTo: .callout) private var clockWidth = 48
 
     var body: some View {
         ScrollView {
@@ -213,12 +220,12 @@ struct SummaryPanel: View {
                                 Button(Transcript.clock(s)) { seek(s) }
                                     .buttonStyle(.link)
                                     .font(.callout.monospacedDigit())
-                                    .frame(width: 48, alignment: .leading)
+                                    .frame(width: clockWidth, alignment: .leading)
                             }
                             Text(point.text).font(.callout).textSelection(.enabled)
                         }
                     }
-                    Text("Generated on this Mac from the transcript.").font(.caption2).foregroundStyle(.tertiary)
+                    Text("Generated on this Mac from the transcript.").font(.caption).foregroundStyle(.secondary)
                 } else {
                     placeholder
                 }
@@ -253,6 +260,7 @@ struct TranscriptPanel: View {
     let player: PlayerController
     @State private var lines: [TranscriptLine] = []
     @State private var query = ""
+    @ScaledMetric(relativeTo: .caption) private var clockWidth = 44
 
     var body: some View {
         let shown = query.isEmpty ? lines : lines.filter { $0.text.localizedCaseInsensitiveContains(query) }
@@ -265,7 +273,7 @@ struct TranscriptPanel: View {
                 List(shown) { line in
                     Button { player.seek(to: line.start) } label: {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(Transcript.clock(line.start)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(width: 44, alignment: .leading)
+                            Text(Transcript.clock(line.start)).font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(width: clockWidth, alignment: .leading)
                             Text(line.text).foregroundStyle(.primary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)

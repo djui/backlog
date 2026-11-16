@@ -36,6 +36,7 @@ struct Thumbnail: View {
                 .font(.title2)
                 #endif
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
         }
     }
 }

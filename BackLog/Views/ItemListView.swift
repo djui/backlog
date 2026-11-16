@@ -141,7 +141,9 @@ struct ItemRow: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 4).padding(.vertical, 1)
                             .background(.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 3))
+                            .dynamicTypeSize(...DynamicTypeSize.xLarge)  // A badge on a fixed-size picture; the row's value reads it.
                             .padding(4)
+                            .accessibilityHidden(true)  // Read as the row's value instead.
                     }
                 }
                 .overlay(alignment: .bottomLeading) {
@@ -156,7 +158,7 @@ struct ItemRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    if item.starred { Image(systemName: "star.fill").font(.caption).foregroundStyle(.yellow) }
+                    if item.starred { Image(systemName: "star.fill").font(.caption).foregroundStyle(.yellow).accessibilityLabel("Starred") }
                     Text(item.title)
                         .font(.headline)
                         .lineLimit(2)
@@ -180,6 +182,17 @@ struct ItemRow: View {
             }
         }
         .padding(.vertical, 4)
+        // One stop for VoiceOver: title, details and status, then the length and how far in.
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(accessibilityProgress)
+    }
+
+    private var accessibilityProgress: String {
+        var parts = [item.durationText]
+        if item.durationSeconds > 0, item.position > 0 {
+            parts.append("\(Int(min(1, item.position / item.durationSeconds) * 100))% watched")
+        }
+        return parts.filter { !$0.isEmpty }.joined(separator: ", ")
     }
 }
 
@@ -198,6 +211,7 @@ struct StatusLine: View {
             DownloadProgressLine(progress: downloader.progress(of: item))
         case .failed(let message):
             Label(message, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red).lineLimit(1)
+                .help(message)  // The whole message, when the row cuts it off.
         case .idle:
             if item.state.isFinished {
                 Text(item.state.label(for: item.kind) + (item.consumedAt.map { " " + $0.formatted(.relative(presentation: .named)) } ?? ""))

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 /// UI state shared across the app: selection, search, the confirmation toast.
 @MainActor @Observable
@@ -31,6 +32,8 @@ final class AppState {
         case .noLink: toast = "No link found"
         }
         let message = toast
+        // The toast is visual only; VoiceOver hears it too. Also covers the Mac's ⌥⌘L capture.
+        if let message { AccessibilityNotification.Announcement(message).post() }
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(2.5))
             if self.toast == message { self.toast = nil }

@@ -8,6 +8,7 @@ enum MobileSection { case upNext, history }
 
 struct MobileRootView: View {
     @Environment(AppState.self) private var app
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showAdd = false
 
     var body: some View {
@@ -31,7 +32,7 @@ struct MobileRootView: View {
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .glassEffect(.regular, in: .capsule)
                     .padding(.top, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
         }
         .animation(.spring(duration: 0.35), value: app.toast)
@@ -220,12 +221,14 @@ struct MobileRow: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 4).padding(.vertical, 1)
                             .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                            .dynamicTypeSize(...DynamicTypeSize.xLarge)  // A badge on a fixed-size picture; the row's value reads it.
                             .padding(4)
+                            .accessibilityHidden(true)  // Read as the row's value instead.
                     }
                 }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    if item.starred { Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow) }
+                    if item.starred { Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow).accessibilityLabel("Starred") }
                     Text(item.title).font(.subheadline.weight(.semibold)).lineLimit(2)
                 }
                 Text([item.kind.label, item.author.isEmpty ? item.siteName : item.author, item.sharedBy.isEmpty ? "" : "from \(item.sharedBy)"]
@@ -248,6 +251,9 @@ struct MobileRow: View {
             }
         }
         .padding(.vertical, 2)
+        // One stop for VoiceOver: title and details first, then the length.
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(item.durationText)
     }
 }
 
@@ -261,6 +267,9 @@ struct MobileDetail: View {
     @AppStorage("summaryLength") private var length: SummaryLength = .keyPoints
     @State private var showReader = false
     @State private var showTranscript = false
+    /// Timestamp columns grow with the text size, so "1:02:03" never truncates.
+    @ScaledMetric(relativeTo: .callout) private var pointClockWidth = 50
+    @ScaledMetric(relativeTo: .caption) private var lineClockWidth = 44
     @State private var tick = 0
 
     var body: some View {
@@ -303,7 +312,7 @@ struct MobileDetail: View {
                                 if let s = point.seconds, let url = timestampURL(s) {
                                     Button(Transcript.clock(s)) { openURL(url) }
                                         .font(.callout.monospacedDigit())
-                                        .frame(width: 50, alignment: .leading)
+                                        .frame(width: pointClockWidth, alignment: .leading)
                                 }
                                 Text(point.text).font(.callout)
                             }
@@ -326,10 +335,10 @@ struct MobileDetail: View {
                                     if let url = timestampURL(line.start), url != item.url {
                                         Button(Transcript.clock(line.start)) { openURL(url) }
                                             .font(.caption.monospacedDigit())
-                                            .frame(width: 44, alignment: .leading)
+                                            .frame(width: lineClockWidth, alignment: .leading)
                                     } else {
                                         Text(Transcript.clock(line.start)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                                            .frame(width: 44, alignment: .leading)
+                                            .frame(width: lineClockWidth, alignment: .leading)
                                     }
                                     Text(line.text).font(.callout).textSelection(.enabled)
                                 }
@@ -489,7 +498,7 @@ struct MobileSearch: View {
             NavigationLink(value: hit.item.id) {
                 VStack(alignment: .leading, spacing: 4) {
                     MobileRow(item: hit.item)
-                    if !hit.snippet.isEmpty { Text(hit.snippet).font(.caption2).foregroundStyle(.tertiary).lineLimit(2) }
+                    if !hit.snippet.isEmpty { Text(hit.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
                 }
             }
         }

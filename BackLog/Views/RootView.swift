@@ -49,6 +49,7 @@ struct RootView: View {
     @FocusState private var searchFocused: Bool
     @State private var pendingRemoval: [Item] = []
     @AppStorage("showPanel") private var showPanel = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private func perform(_ command: ItemCommand, on targets: [Item]) {
         BatchActions.perform(command, on: targets, context: context, downloader: downloader)
@@ -150,7 +151,7 @@ struct RootView: View {
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .background(.regularMaterial, in: Capsule())
                     .padding(.bottom, 18)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.easeOut(duration: 0.2), value: app.toast)
