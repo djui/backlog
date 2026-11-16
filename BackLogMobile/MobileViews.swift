@@ -13,17 +13,17 @@ struct MobileRootView: View {
     var body: some View {
         TabView {
             Tab("Up Next", systemImage: "list.bullet") {
-                NavigationStack { MobileList(section: .upNext, showAdd: $showAdd) }
+                ItemSplit { MobileList(section: .upNext, showAdd: $showAdd, selection: $0) }
             }
             Tab("History", systemImage: "clock") {
-                NavigationStack { MobileList(section: .history, showAdd: $showAdd) }
+                ItemSplit { MobileList(section: .history, showAdd: $showAdd, selection: $0) }
             }
             Tab(role: .search) {
-                NavigationStack { MobileSearch() }
+                ItemSplit { MobileSearch(selection: $0) }
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
-        .sheet(isPresented: $showAdd) { MobileAddSheet().presentationDetents([.medium]) }
+        .sheet(isPresented: $showAdd) { MobileAddSheet().presentationDetents([.medium, .large]) }
         .overlay(alignment: .top) {
             if let toast = app.toast {
                 Label(toast, systemImage: "tray.and.arrow.down.fill")
@@ -40,14 +40,37 @@ struct MobileRootView: View {
 
 // MARK: - Lists
 
+/// A list and the selected item: side by side on iPad, pushed on iPhone.
+struct ItemSplit<Content: View>: View {
+    @ViewBuilder let list: (Binding<UUID?>) -> Content
+    @Query private var items: [Item]
+    @State private var selection: UUID?
+
+    var body: some View {
+        NavigationSplitView {
+            list($selection)
+                .navigationSplitViewColumnWidth(min: 320, ideal: 380, max: 480)
+        } detail: {
+            if let id = selection, let item = items.first(where: { $0.id == id }) {
+                MobileDetail(item: item).id(id)
+            } else {
+                ContentUnavailableView("Nothing selected", systemImage: "play.rectangle",
+                                       description: Text("Pick something from the list."))
+            }
+        }
+    }
+}
+
 struct MobileList: View {
     let section: MobileSection
     @Binding var showAdd: Bool
+    @Binding var selection: UUID?
     @Environment(\.modelContext) private var context
     @Environment(Downloader.self) private var downloader
     @Query(sort: \Item.sortIndex) private var items: [Item]
     @State private var finishedTick = 0
     @State private var showSettings = false
+    @State private var pendingDelete: Item?
     @AppStorage("lengthFilter") private var length: LengthFilter = .any
     @AppStorage("listSort") private var sort: ListSort = .manual
     @AppStorage("tagFilter") private var tagFilter = ""
@@ -71,7 +94,7 @@ struct MobileList: View {
 
     var body: some View {
         let shown = shown
-        List {
+        List(selection: $selection) {
             ForEach(shown) { item in
                 NavigationLink(value: item.id) { MobileRow(item: item) }
                     .swipeActions(edge: .leading) {
@@ -81,8 +104,9 @@ struct MobileList: View {
                             Button { item.state = .queued; try? context.save() } label: { Label("Up Next", systemImage: "arrow.uturn.backward") }.tint(.orange)
                         }
                     }
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) { Library.delete(item, context: context, downloader: downloader) } label: { Label("Delete", systemImage: "trash") }
+                    // No full swipe: deleting also throws away the notes, summary and downloads.
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button { pendingDelete = item } label: { Label("Delete", systemImage: "trash") }.tint(.red)
                         if !item.state.isFinished {
                             Button { finish(item, .skipped) } label: { Label("Skip", systemImage: "forward") }.tint(.gray)
                         }
@@ -93,8 +117,18 @@ struct MobileList: View {
         }
         .listStyle(.plain)
         .navigationTitle(section == .upNext ? "Up Next" : "History")
-        .navigationDestination(for: UUID.self) { id in
-            if let item = items.first(where: { $0.id == id }) { MobileDetail(item: item) }
+        .confirmationDialog("Delete “\(pendingDelete?.title ?? "")”?", isPresented: Binding(
+            get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }
+        ), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let item = pendingDelete {
+                    if selection == item.id { selection = nil }
+                    Library.delete(item, context: context, downloader: downloader)
+                }
+                pendingDelete = nil
+            }
+        } message: {
+            Text("Its notes, summary and downloads are deleted too. To keep it in History, mark it as done instead.")
         }
         .toolbar {
             if section == .upNext {
@@ -176,7 +210,7 @@ struct MobileRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            MobileThumbnail(item: item)
+            Thumbnail(item: item)
                 .frame(width: 112, height: 63)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(alignment: .bottomTrailing) {
@@ -206,8 +240,8 @@ struct MobileRow: View {
                         ForEach(tags.prefix(3), id: \.self) { tag in
                             Text("#\(tag)").font(.caption2.weight(.medium))
                                 .padding(.horizontal, 6).padding(.vertical, 1)
-                                .background(Color.orange.opacity(0.18), in: Capsule())
-                                .foregroundStyle(.orange)
+                                .background(Color.tagFill, in: Capsule())
+                                .foregroundStyle(Color.tagInk)
                         }
                     }
                 }
@@ -217,33 +251,13 @@ struct MobileRow: View {
     }
 }
 
-struct MobileThumbnail: View {
-    let item: Item
-
-    var body: some View {
-        if let image = UIImage(contentsOfFile: ItemFiles(id: item.id).thumbnail.path) {
-            Image(uiImage: image).resizable().aspectRatio(contentMode: .fill)
-        } else if let url = URL(string: item.thumbnailURL), !item.thumbnailURL.isEmpty {
-            AsyncImage(url: url) { $0.resizable().aspectRatio(contentMode: .fill) } placeholder: { placeholder }
-        } else {
-            placeholder
-        }
-    }
-
-    private var placeholder: some View {
-        ZStack {
-            Rectangle().fill(.quaternary)
-            Image(systemName: item.kind.symbol).foregroundStyle(.secondary)
-        }
-    }
-}
-
 // MARK: - Detail
 
 struct MobileDetail: View {
     @Bindable var item: Item
     @Environment(\.modelContext) private var context
     @Environment(\.openURL) private var openURL
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("summaryLength") private var length: SummaryLength = .keyPoints
     @State private var showReader = false
     @State private var showTranscript = false
@@ -253,7 +267,7 @@ struct MobileDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Button(action: primaryAction) {
-                    MobileThumbnail(item: item)
+                    Thumbnail(item: item, maxPixels: 1600)
                         .aspectRatio(16 / 9, contentMode: .fit)
                         .frame(maxWidth: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -330,10 +344,12 @@ struct MobileDetail: View {
                 }
             }
             .padding()
+            .frame(maxWidth: 720)  // A readable measure on iPad.
+            .frame(maxWidth: .infinity)
         }
         .navigationBarTitleDisplayMode(.inline)
-        // The item's actions take the bottom of the screen; the tab bar would cover them.
-        .toolbarVisibility(.hidden, for: .tabBar)
+        // On iPhone the item's actions take the bottom of the screen, where the tab bar would cover them.
+        .toolbarVisibility(sizeClass == .compact ? .hidden : .automatic, for: .tabBar)
         .toolbar {
             ToolbarItemGroup(placement: .bottomBar) {
                 if item.state.isFinished {
@@ -442,10 +458,12 @@ struct ReaderWeb: UIViewRepresentable {
         let page = """
         <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light dark"><style>
-        body { font: 19px/1.6 "New York", Georgia, serif; margin: 20px 20px 80px; color: CanvasText; background: Canvas; -webkit-text-size-adjust: 100%; }
-        h1 { font-size: 28px; line-height: 1.2; } .byline { font: 14px -apple-system, sans-serif; color: GrayText; margin-bottom: 24px; }
-        img, video, figure { max-width: 100%; height: auto; border-radius: 8px; } a { color: #e06a2c; }
-        pre { overflow-x: auto; font-size: 14px; } blockquote { margin-left: 0; padding-left: 14px; border-left: 3px solid #ccc; }
+        html { font: -apple-system-body; -webkit-text-size-adjust: 100%; }
+        body { font-family: "New York", Georgia, serif; font-size: 1.12em; line-height: 1.6; max-width: 38em; margin: 20px auto 80px; padding: 0 20px; color: CanvasText; background: Canvas; }
+        h1 { font-size: 1.5em; line-height: 1.2; } .byline { font-family: -apple-system, sans-serif; font-size: .75em; color: GrayText; margin-bottom: 24px; }
+        img, video, figure { max-width: 100%; height: auto; border-radius: 8px; }
+        a { color: #a34a00; } @media (prefers-color-scheme: dark) { a { color: #ff9f0a; } }
+        pre { overflow-x: auto; font-size: .75em; } blockquote { margin-left: 0; padding-left: 14px; border-left: 3px solid color-mix(in srgb, CanvasText 20%, transparent); }
         </style></head><body><h1>\(title.replacingOccurrences(of: "<", with: "&lt;"))</h1><div class="byline">\(byline.replacingOccurrences(of: "<", with: "&lt;"))</div>\(body)</body></html>
         """
         let reader = files.directory.appending(path: "reader.html")
@@ -460,13 +478,14 @@ struct ReaderWeb: UIViewRepresentable {
 // MARK: - Search
 
 struct MobileSearch: View {
+    @Binding var selection: UUID?
     @Query private var items: [Item]
     @Environment(SearchIndex.self) private var search
     @State private var query = ""
     @State private var hits: [SearchIndex.Hit] = []
 
     var body: some View {
-        List(hits) { hit in
+        List(hits, selection: $selection) { hit in
             NavigationLink(value: hit.item.id) {
                 VStack(alignment: .leading, spacing: 4) {
                     MobileRow(item: hit.item)
@@ -476,9 +495,6 @@ struct MobileSearch: View {
         }
         .listStyle(.plain)
         .navigationTitle("Search")
-        .navigationDestination(for: UUID.self) { id in
-            if let item = items.first(where: { $0.id == id }) { MobileDetail(item: item) }
-        }
         .searchable(text: $query, prompt: "Titles, captions, pictures, what it was about…")
         .overlay {
             if query.isEmpty {
@@ -559,8 +575,8 @@ struct MobileSettings: View {
             Form {
                 Section {
                     Stepper("Keep the next \(prefs.policy.downloadAhead) articles offline", value: $prefs.policy.downloadAhead, in: 1...20)
-                } header: { Text("On this iPhone") } footer: {
-                    Text("Videos and reels open in their own apps. Your list, notes and summaries sync with your Mac through iCloud; downloads stay on each device.")
+                } header: { Text("On this \(UIDevice.current.model)") } footer: {
+                    Text("Videos and reels open in their own apps. Your list, notes and summaries sync with your other devices through iCloud; downloads stay on each device.")
                 }
                 Section("Summaries") {
                     if let reason = Summarizer.unavailableReason { Label(reason, systemImage: "exclamationmark.triangle") }

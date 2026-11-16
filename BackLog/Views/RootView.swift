@@ -114,7 +114,8 @@ struct RootView: View {
             guard let command else { return }
             app.command = nil
             let targets = items.filter { app.selected.contains($0.id) }
-            if command == .remove, targets.count > 1 {
+            // "Remove from Library…" always asks: it deletes notes, summaries and downloads.
+            if command == .remove, !targets.isEmpty {
                 pendingRemoval = targets
             } else {
                 perform(command, on: targets)
@@ -126,15 +127,17 @@ struct RootView: View {
             sidebar = .section(LibrarySection.allCases[index])
             app.searchText = ""
         }
-        .confirmationDialog("Remove \(pendingRemoval.count) items from your library?", isPresented: Binding(
+        .confirmationDialog(removalTitle, isPresented: Binding(
             get: { !pendingRemoval.isEmpty }, set: { if !$0 { pendingRemoval = [] } }
         )) {
-            Button("Remove \(pendingRemoval.count) Items", role: .destructive) {
+            Button(pendingRemoval.count == 1 ? "Remove" : "Remove \(pendingRemoval.count) Items", role: .destructive) {
                 perform(.remove, on: pendingRemoval)
                 pendingRemoval = []
             }
         } message: {
-            Text("Their downloads, notes and summaries are deleted too. To keep them in History, mark them as done instead.")
+            Text(pendingRemoval.count == 1
+                 ? "Its download, notes and summary are deleted too. To keep it in History, mark it as done instead."
+                 : "Their downloads, notes and summaries are deleted too. To keep them in History, mark them as done instead.")
         }
         .onChange(of: app.focusSearch) { _, focus in
             if focus { searchFocused = true; app.focusSearch = false }
@@ -151,6 +154,12 @@ struct RootView: View {
             }
         }
         .animation(.easeOut(duration: 0.2), value: app.toast)
+    }
+
+    private var removalTitle: String {
+        pendingRemoval.count == 1
+            ? "Remove “\(pendingRemoval[0].title)” from your library?"
+            : "Remove \(pendingRemoval.count) items from your library?"
     }
 
     private func count(for section: LibrarySection) -> Int {

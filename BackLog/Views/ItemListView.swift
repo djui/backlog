@@ -172,8 +172,8 @@ struct ItemRow: View {
                         ForEach(tags.prefix(3), id: \.self) { tag in
                             Text("#\(tag)").font(.caption2.weight(.medium))
                                 .padding(.horizontal, 6).padding(.vertical, 1)
-                                .background(Color.orange.opacity(0.18), in: Capsule())
-                                .foregroundStyle(.orange)
+                                .background(Color.tagFill, in: Capsule())
+                                .foregroundStyle(Color.tagInk)
                         }
                     }
                 }
@@ -186,6 +186,7 @@ struct ItemRow: View {
 struct StatusLine: View {
     let item: Item
     let status: DownloadStatus
+    @Environment(Downloader.self) private var downloader
 
     var body: some View {
         switch status {
@@ -193,11 +194,8 @@ struct StatusLine: View {
             Text("Queued").font(.caption).foregroundStyle(.secondary)
         case .fetchingInfo:
             Text("Reading details…").font(.caption).foregroundStyle(.secondary)
-        case .downloading(let fraction, let speed):
-            HStack(spacing: 6) {
-                ProgressView(value: fraction ?? 0).frame(width: 90).controlSize(.small)
-                Text(downloadText(fraction, speed)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-            }
+        case .downloading:
+            DownloadProgressLine(progress: downloader.progress(of: item))
         case .failed(let message):
             Label(message, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red).lineLimit(1)
         case .idle:
@@ -213,39 +211,25 @@ struct StatusLine: View {
             }
         }
     }
-
-    private func downloadText(_ fraction: Double?, _ speed: Double?) -> String {
-        var parts: [String] = []
-        if let fraction { parts.append("\(Int(fraction * 100))%") }
-        if let speed, speed > 0 { parts.append(ByteCountFormatter.string(fromByteCount: Int64(speed), countStyle: .file) + "/s") }
-        return parts.isEmpty ? "Downloading…" : parts.joined(separator: " · ")
-    }
 }
 
-struct Thumbnail: View {
-    let item: Item
+/// The only view that redraws on a progress tick.
+private struct DownloadProgressLine: View {
+    let progress: DownloadProgress
 
     var body: some View {
-        let local = ItemFiles(id: item.id).thumbnail
-        if let image = NSImage(contentsOf: local) {
-            Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
-        } else if let url = URL(string: item.thumbnailURL), !item.thumbnailURL.isEmpty {
-            AsyncImage(url: url) { image in
-                image.resizable().aspectRatio(contentMode: .fill)
-            } placeholder: { placeholder }
-        } else {
-            placeholder
+        HStack(spacing: 6) {
+            ProgressView(value: progress.fraction ?? 0).frame(width: 90).controlSize(.small)
+            Text(text).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
         }
     }
 
-    private var placeholder: some View {
-        ZStack {
-            Rectangle().fill(.quaternary)
-            Image(systemName: symbol).font(.title2).foregroundStyle(.secondary)
-        }
+    private var text: String {
+        var parts: [String] = []
+        if let fraction = progress.fraction { parts.append("\(Int(fraction * 100))%") }
+        if let speed = progress.bytesPerSecond, speed > 0 { parts.append(ByteCountFormatter.string(fromByteCount: Int64(speed), countStyle: .file) + "/s") }
+        return parts.isEmpty ? "Downloading…" : parts.joined(separator: " · ")
     }
-
-    private var symbol: String { item.kind.symbol }
 }
 
 /// Length filter and sort order, one menu in the toolbar. Filled icon while filtering.

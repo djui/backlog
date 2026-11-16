@@ -17,6 +17,7 @@ struct ReaderSurface: NSViewRepresentable {
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
         view.setValue(false, forKey: "drawsBackground")
+        view.allowsMagnification = true  // Pinch to make the text bigger.
         load(into: view)
         return view
     }
@@ -37,7 +38,7 @@ struct ReaderSurface: NSViewRepresentable {
         img, video, figure { max-width: 100%; height: auto; border-radius: 6px; }
         figure { margin: 1.5em 0; }
         figcaption { font: 13px -apple-system, system-ui, sans-serif; color: GrayText; }
-        a { color: #d4692e; }
+        a { color: #a34a00; } @media (prefers-color-scheme: dark) { a { color: #ff9f0a; } }
         pre, code { font: 14px ui-monospace, "SF Mono", Menlo, monospace; }
         pre { background: color-mix(in srgb, CanvasText 6%, transparent); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
         blockquote { margin: 1.2em 0; padding-left: 16px; border-left: 3px solid color-mix(in srgb, CanvasText 20%, transparent); color: color-mix(in srgb, CanvasText 80%, transparent); }

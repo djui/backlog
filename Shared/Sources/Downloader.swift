@@ -8,7 +8,9 @@ enum DownloadStatus: Equatable {
     case idle
     case queued
     case fetchingInfo
-    case downloading(fraction: Double?, bytesPerSecond: Double?)
+    /// Live percentage and speed are in `Downloader.progress(of:)`, so a progress tick redraws
+    /// only that item's progress line, not every list that reads the status.
+    case downloading
     case failed(String)
 
     var isActive: Bool {
@@ -17,6 +19,13 @@ enum DownloadStatus: Equatable {
         default: false
         }
     }
+}
+
+/// How far one download has got. Observed on its own, item by item.
+@MainActor @Observable
+final class DownloadProgress {
+    var fraction: Double?
+    var bytesPerSecond: Double?
 }
 
 /// Captures items, two at a time: details and preview image for every link, the media for
@@ -37,10 +46,20 @@ final class Downloader {
     @ObservationIgnored private var waiting: [PersistentIdentifier] = []
     @ObservationIgnored private var running: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private let container: ModelContainer
+    @ObservationIgnored private var liveProgress: [UUID: DownloadProgress] = [:]
 
     init(container: ModelContainer) { self.container = container }
 
     func status(of item: Item) -> DownloadStatus { status[item.id] ?? .idle }
+
+    func progress(of item: Item) -> DownloadProgress { progress(for: item.id) }
+
+    private func progress(for id: UUID) -> DownloadProgress {
+        if let p = liveProgress[id] { return p }
+        let p = DownloadProgress()
+        liveProgress[id] = p
+        return p
+    }
 
     var activeCount: Int { status.values.filter(\.isActive).count }
 
@@ -134,14 +153,18 @@ final class Downloader {
         guard wanted || files.media != nil else { return nil }  // Details only, for now.
 
         if files.media == nil {
-            status[item.id] = .downloading(fraction: nil, bytesPerSecond: nil)
             let id = item.id
+            let live = progress(for: id)
+            live.fraction = nil
+            live.bytesPerSecond = nil
+            status[id] = .downloading
             let args = YTDLP.downloadArguments(for: url, into: files.directory, quality: quality, ffmpeg: Tools.ffmpeg)
             _ = try await Tools.run(ytdlp, args) { line in
                 guard let progress = YTDLP.parseProgress(line) else { return }
                 Task { @MainActor [weak self] in
                     guard let self, self.status[id]?.isActive == true else { return }
-                    self.status[id] = .downloading(fraction: progress.fraction, bytesPerSecond: progress.bytesPerSecond)
+                    live.fraction = progress.fraction
+                    live.bytesPerSecond = progress.bytesPerSecond
                 }
             }
             try await MediaJoiner.joinIfNeeded(in: files.directory)

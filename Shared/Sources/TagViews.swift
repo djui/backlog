@@ -1,6 +1,25 @@
 import BackLogCore
 import SwiftUI
 
+extension Color {
+    /// Orange for text: #A34A00 in light mode (about 5:1 on white and on the tag fill), system
+    /// orange in dark mode. System orange itself is only about 2.2:1 on white.
+    static let tagInk: Color = {
+        #if os(macOS)
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .systemOrange : NSColor(srgbRed: 0.64, green: 0.29, blue: 0, alpha: 1)
+        })
+        #else
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? .systemOrange : UIColor(red: 0.64, green: 0.29, blue: 0, alpha: 1)
+        })
+        #endif
+    }()
+
+    /// The fill behind tag text.
+    static let tagFill = Color.orange.opacity(0.18)
+}
+
 /// Lays out views left to right, wrapping onto new lines — for tag bubbles and suggestion chips.
 struct FlowLayout: Layout {
     var spacing: CGFloat = 6
@@ -55,19 +74,31 @@ struct TagBubble: View {
     var remove: (() -> Void)? = nil
 
     var body: some View {
+        if let remove {
+            // The whole bubble removes the tag: the × alone is far too small to tap.
+            Button(action: remove) {
+                bubble(removable: true)
+                    #if os(iOS)
+                    .frame(minHeight: 44)
+                    #endif
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove tag \(tag)")
+        } else {
+            bubble(removable: false)
+        }
+    }
+
+    private func bubble(removable: Bool) -> some View {
         HStack(spacing: 4) {
             Text("#\(tag)")
-            if let remove {
-                Button(action: remove) { Image(systemName: "xmark.circle.fill") }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("Remove \(tag)")
-            }
+            if removable { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
         }
         .font(.callout.weight(.medium))
         .padding(.horizontal, 10).padding(.vertical, 4)
-        .background(Color.orange.opacity(0.18), in: Capsule())
-        .foregroundStyle(Color.orange)
+        .background(Color.tagFill, in: Capsule())
+        .foregroundStyle(Color.tagInk)
     }
 }
 

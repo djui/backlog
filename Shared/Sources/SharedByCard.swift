@@ -12,9 +12,9 @@ struct SharedByCard: View {
             HStack(alignment: .top, spacing: 10) {
                 Text(String(item.sharedBy.first ?? "✎").uppercased())
                     .font(.callout.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.tagInk)
                     .frame(width: 30, height: 30)
-                    .background(Color.accentColor, in: Circle())
+                    .background(Color.tagFill, in: Circle())
                 VStack(alignment: .leading, spacing: 6) {
                     if !item.sharedBy.isEmpty {
                         Text("From ").foregroundStyle(.secondary) + Text(item.sharedBy).bold()

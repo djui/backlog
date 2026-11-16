@@ -38,7 +38,7 @@ struct DetailView: View {
                                 .onAppear { player.load(item, file: media, context: context) }
                                 .onDisappear { player.unload() }
                         } else {
-                            Thumbnail(item: item)
+                            Thumbnail(item: item, maxPixels: 1600)
                                 .overlay {
                                     if item.kind.isPlayable {
                                         VStack(spacing: 8) {
@@ -201,7 +201,7 @@ struct SummaryPanel: View {
                     Text(summary.readingTime(for: length) + (summary.sourceMinutes.map { " · instead of \(Int($0.rounded())) min" } ?? ""))
                         .font(.caption).foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("TAKEAWAY").font(.caption2.weight(.bold)).foregroundStyle(.orange)
+                        Text("Takeaway").font(.caption.weight(.semibold)).foregroundStyle(Color.tagInk)
                         Text(summary.takeaway).font(.body.weight(.semibold)).textSelection(.enabled)
                     }
                     .padding(12)
