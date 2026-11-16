@@ -108,7 +108,9 @@ struct MenuBarContent: View {
         Button("Save Link from Clipboard") {
             app.report(Library.add(text: NSPasteboard.general.string(forType: .string) ?? "", context: context, downloader: downloader))
         }
-        Button("Save Current Browser Page  ⌥⌘L") { QuickCapture.shared.capture() }
+        // The menu draws the shortcut in its own column; the global hot key does the work elsewhere.
+        Button("Save Current Browser Page") { QuickCapture.shared.capture() }
+            .keyboardShortcut("l", modifiers: [.command, .option])
         Divider()
         let active = downloader.activeCount
         Text(active == 0 ? "No downloads" : "Downloading \(active)…")
