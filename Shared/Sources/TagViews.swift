@@ -71,20 +71,14 @@ struct TagBubble: View {
     }
 }
 
-/// Tags as bubbles with a field to add more (return adds) and previous tags to tap.
+/// A field to add tags (return, comma or space adds), then the chosen tags as bubbles, then
+/// previous tags to tap. The field stays put at the top so it doesn't jump as tags are picked.
 struct TagField: View {
     @Binding var tags: [String]
     @State private var draft = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !tags.isEmpty {
-                FlowLayout {
-                    ForEach(tags, id: \.self) { tag in
-                        TagBubble(tag: tag) { tags.removeAll { $0 == tag } }
-                    }
-                }
-            }
             TextField("Add tag", text: $draft)
                 .onSubmit(commit)
                 .onChange(of: draft) { _, new in
@@ -95,6 +89,13 @@ struct TagField: View {
                 .textInputAutocapitalization(.never)
                 .submitLabel(.done)
                 #endif
+            if !tags.isEmpty {
+                FlowLayout {
+                    ForEach(tags, id: \.self) { tag in
+                        TagBubble(tag: tag) { tags.removeAll { $0 == tag } }
+                    }
+                }
+            }
             SuggestionChips(values: Suggestions.rank(Recents.tags, typed: draft, excluding: tags)) { tag in
                 tags.append(tag)
                 draft = ""

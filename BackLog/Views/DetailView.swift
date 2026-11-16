@@ -390,6 +390,7 @@ struct AddLinkSheet: View {
     @State private var text = ""
     @State private var from = ""
     @State private var tags: [String] = []
+    @State private var finished = false
 
     var body: some View {
         let link = SharedLink.parse(text)
@@ -405,15 +406,16 @@ struct AddLinkSheet: View {
                 .textFieldStyle(.roundedBorder)
             Text(link.map { "\($0.kind.label) · \(SourceClassifier.normalizedHost($0.url))" + ($0.note.isEmpty ? "" : " · note: “\($0.note)”") } ?? " ")
                 .font(.caption).foregroundStyle(.secondary)
+            Toggle("Already \((link?.kind.doneLabel ?? "Done").lowercased()) — straight to History", isOn: $finished)
             HStack {
-                Text("Downloads as \(downloader.quality.label)").font(.caption).foregroundStyle(.secondary)
+                Text(finished ? " " : "Downloads as \(downloader.quality.label)").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
                 Button("Add") {
                     Recents.remember(from: from)
                     Recents.remember(tags: tags)
                     let withTags = tags.isEmpty ? text : text + "\n" + Tags.compose(note: "", tags: tags)
-                    app.report(Library.add(text: withTags, sharedBy: from, context: context, downloader: downloader))
+                    app.report(Library.add(text: withTags, sharedBy: from, finished: finished, context: context, downloader: downloader))
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)

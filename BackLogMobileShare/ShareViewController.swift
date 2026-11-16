@@ -56,7 +56,13 @@ private struct ShareSheet: View {
     @State private var from = ""
     @State private var tags: [String] = []
     @State private var note = ""
+    @State private var finished = false
     @FocusState private var fromFocused: Bool
+
+    /// "watched", "read", "listened" — what the link is.
+    private var doneLabel: String {
+        (SharedLink.parse(link.isEmpty ? sharedText : link)?.kind.doneLabel ?? "Done").lowercased()
+    }
 
     var body: some View {
         NavigationStack {
@@ -77,8 +83,13 @@ private struct ShareSheet: View {
                 }
                 Section {
                     TextField("Note", text: $note, axis: .vertical).lineLimit(1...4)
+                }
+                Section {
+                    Toggle("Already \(doneLabel)", isOn: $finished)
                 } footer: {
-                    Text("It's in your Up Next the next time you open BackLog, and on your Mac.")
+                    Text(finished
+                         ? "It goes straight to your History the next time you open BackLog, and on your Mac."
+                         : "It's in your Up Next the next time you open BackLog, and on your Mac.")
                 }
             }
             .navigationTitle("Save to BackLog")
@@ -90,7 +101,7 @@ private struct ShareSheet: View {
                         Recents.remember(from: from)
                         Recents.remember(tags: tags)
                         let text = link.isEmpty ? sharedText : (sharedText.contains(link) ? sharedText : link + "\n" + sharedText)
-                        save(.init(text: text, from: from, note: Tags.compose(note: note, tags: tags), date: .now))
+                        save(.init(text: text, from: from, note: Tags.compose(note: note, tags: tags), date: .now, finished: finished))
                     }
                     .disabled(link.isEmpty && sharedText.isEmpty)
                 }

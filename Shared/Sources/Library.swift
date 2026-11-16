@@ -10,9 +10,10 @@ enum Library {
     /// Adds what's in `text` to the end of Up Next: one link (a URL, or a chat message with a link
     /// in it), or — when it holds several, like a pasted chat export — all of them, each dated when
     /// it was shared and credited to who shared it. A link already in the library is moved back
-    /// into Up Next instead of added twice (single link) or skipped (import).
+    /// into Up Next instead of added twice (single link) or skipped (import). `finished` saves a
+    /// single link as already watched/read, straight into History.
     @discardableResult
-    static func add(text: String, sharedBy: String = "", context: ModelContext, downloader: Downloader) -> AddResult {
+    static func add(text: String, sharedBy: String = "", finished: Bool = false, context: ModelContext, downloader: Downloader) -> AddResult {
         let entries = ChatImport.parse(text)
         if entries.count > 1 || entries.first?.date != nil {
             return importAll(entries, source: sharedBy, context: context, downloader: downloader)
@@ -21,7 +22,8 @@ enum Library {
         let canonical = SourceClassifier.canonical(link.url).absoluteString
         let all = (try? context.fetch(FetchDescriptor<Item>())) ?? []
         if let existing = all.first(where: { $0.canonicalURL == canonical }) {
-            if existing.state.isFinished { existing.state = .queued }
+            if finished { if !existing.state.isFinished { existing.state = .done } }
+            else if existing.state.isFinished { existing.state = .queued }
             if !link.note.isEmpty, existing.note.isEmpty { existing.note = link.note }
             try? context.save()
             downloader.enqueue(existing)
@@ -30,6 +32,7 @@ enum Library {
         let last = all.map(\.sortIndex).max() ?? 0
         let item = Item(url: link.url, kind: link.kind, note: link.note, sortIndex: last + 1)
         item.sharedBy = sharedBy
+        if finished { item.state = .done }
         context.insert(item)
         try? context.save()
         downloader.enqueue(item)

@@ -67,7 +67,7 @@ struct BackLogMobileApp: App {
     private func importInbox() {
         for entry in SharedInbox.drain() {
             let text = entry.note.isEmpty ? entry.text : entry.text + "\n" + entry.note
-            let result = Library.add(text: text, sharedBy: entry.from, context: container.mainContext, downloader: downloader)
+            let result = Library.add(text: text, sharedBy: entry.from, finished: entry.finished ?? false, context: container.mainContext, downloader: downloader)
             app.report(result)
         }
     }

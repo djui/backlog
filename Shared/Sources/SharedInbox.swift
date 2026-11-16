@@ -10,6 +10,9 @@ enum SharedInbox {
         var from: String
         var note: String
         var date: Date
+        /// Saved as already watched/read: goes straight to History. Optional so entries saved by
+        /// an older share extension still decode.
+        var finished: Bool? = nil
     }
 
     static var folder: URL? {

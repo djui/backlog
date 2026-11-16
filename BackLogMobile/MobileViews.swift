@@ -505,6 +505,7 @@ struct MobileAddSheet: View {
     @State private var text = ""
     @State private var from = ""
     @State private var tags: [String] = []
+    @State private var finished = false
 
     var body: some View {
         NavigationStack {
@@ -524,6 +525,11 @@ struct MobileAddSheet: View {
                 if let link = SharedLink.parse(text) {
                     Section { Label("\(link.kind.label) · \(SourceClassifier.normalizedHost(link.url))", systemImage: "link") }
                 }
+                Section {
+                    Toggle("Already \((SharedLink.parse(text)?.kind.doneLabel ?? "Done").lowercased())", isOn: $finished)
+                } footer: {
+                    if finished { Text("Goes straight to History.") }
+                }
             }
             .navigationTitle("Save for Later")
             .navigationBarTitleDisplayMode(.inline)
@@ -534,7 +540,7 @@ struct MobileAddSheet: View {
                         Recents.remember(from: from)
                         Recents.remember(tags: tags)
                         let withTags = tags.isEmpty ? text : text + "\n" + Tags.compose(note: "", tags: tags)
-                        app.report(Library.add(text: withTags, sharedBy: from, context: context, downloader: downloader))
+                        app.report(Library.add(text: withTags, sharedBy: from, finished: finished, context: context, downloader: downloader))
                         dismiss()
                     }
                     .disabled(SharedLink.parse(text) == nil)
