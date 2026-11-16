@@ -141,6 +141,23 @@ enum Library {
         try? context.save()
     }
 
+    /// Renames a tag on every item that has it (merging into `new` where both are present) and in
+    /// the tag suggestions. Returns how many items changed, or nil if `new` isn't a valid tag.
+    @discardableResult
+    static func renameTag(_ old: String, to new: String, context: ModelContext) -> Int? {
+        guard let clean = Tags.normalize(new) else { return nil }
+        let items = (try? context.fetch(FetchDescriptor<Item>())) ?? []
+        var changed = 0
+        for item in items where item.hasTag(old) {
+            let note = Tags.rename(old, to: clean, in: item.note)
+            if note != item.note { item.note = note; changed += 1 }
+        }
+        Recents.rename(tag: old, to: clean)
+        try? context.save()
+        onChange?()
+        return changed
+    }
+
     /// Moves an item in Up Next by giving it a sort index between its new neighbours.
     static func move(_ items: [Item], from source: IndexSet, to destination: Int, context: ModelContext) {
         var ordered = items

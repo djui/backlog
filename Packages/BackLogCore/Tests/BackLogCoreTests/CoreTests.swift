@@ -426,6 +426,19 @@ import Testing
         #expect(Tags.parse("issue#12 is not a tag") == [])
     }
 
+    @Test func renames() {
+        #expect(Tags.rename("healthy", to: "health", in: "Good read #Healthy #food") == "Good read #health #food")
+        #expect(Tags.rename("#technology", to: "#tech", in: "#technology first\nthen more") == "#tech first\nthen more")
+        // Merges when the new name is already there, whichever comes first.
+        #expect(Tags.rename("healthy", to: "health", in: "x #health #healthy #food") == "x #health #food")
+        #expect(Tags.rename("healthy", to: "health", in: "x #healthy #Health") == "x #health")
+        // Leaves other notes and look-alikes alone.
+        #expect(Tags.rename("healthy", to: "health", in: "x #healthyish") == "x #healthyish")
+        #expect(Tags.rename("tech", to: "bad name!", in: "#tech") == "#tech")
+        #expect(Tags.normalize(" #Home workout ") == "Home-workout")
+        #expect(Tags.normalize("#") == nil)
+    }
+
     @Test func suggestions() {
         let recent = ["Anna · WhatsApp", "Max", "Instagram"]
         #expect(Suggestions.rank(recent, presets: ["WhatsApp", "Messages"], typed: "") == ["Anna · WhatsApp", "Max", "Instagram", "WhatsApp", "Messages"])

@@ -75,6 +75,8 @@ struct MobileList: View {
     @AppStorage("lengthFilter") private var length: LengthFilter = .any
     @AppStorage("listSort") private var sort: ListSort = .manual
     @AppStorage("tagFilter") private var tagFilter = ""
+    @State private var renaming: String?
+    @State private var renameDraft = ""
 
     private var shown: [Item] {
         let tagged = tagFilter.isEmpty ? base : base.filter { $0.hasTag(tagFilter) }
@@ -118,6 +120,24 @@ struct MobileList: View {
         }
         .listStyle(.plain)
         .navigationTitle(section == .upNext ? "Up Next" : "History")
+        .alert("Rename #\(renaming ?? "")", isPresented: Binding(
+            get: { renaming != nil }, set: { if !$0 { renaming = nil } }
+        )) {
+            TextField("New name", text: $renameDraft)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button("Rename") {
+                if let old = renaming, let new = Tags.normalize(renameDraft), new != old {
+                    Library.renameTag(old, to: new, context: context)
+                    if tagFilter == old { tagFilter = new }
+                }
+                renaming = nil
+            }
+            .disabled(Tags.normalize(renameDraft) == nil)
+            Button("Cancel", role: .cancel) { renaming = nil }
+        } message: {
+            Text("Changes the tag on every item that has it. If the new name is already a tag, the two are merged.")
+        }
         .confirmationDialog("Delete “\(pendingDelete?.title ?? "")”?", isPresented: Binding(
             get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }
         ), titleVisibility: .visible) {
@@ -148,6 +168,11 @@ struct MobileList: View {
                         Picker("Tag", selection: $tagFilter) {
                             Text("All Tags").tag("")
                             ForEach(allTags, id: \.self) { Text("#\($0)").tag($0) }
+                        }
+                        if !tagFilter.isEmpty {
+                            Button { renaming = tagFilter; renameDraft = tagFilter } label: {
+                                Label("Rename #\(tagFilter)…", systemImage: "pencil")
+                            }
                         }
                     }
                     Picker("Length", selection: $length) {

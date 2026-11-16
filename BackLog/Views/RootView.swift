@@ -51,6 +51,17 @@ struct RootView: View {
     @AppStorage("showPanel") private var showPanel = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @State private var renaming: String?
+    @State private var renameDraft = ""
+
+    private func commitRename() {
+        guard let old = renaming, let new = Tags.normalize(renameDraft) else { return }
+        renaming = nil
+        guard new != old else { return }
+        Library.renameTag(old, to: new, context: context)
+        if selectedTag == old { sidebar = .tag(new) }
+    }
+
     private func perform(_ command: ItemCommand, on targets: [Item]) {
         BatchActions.perform(command, on: targets, context: context, downloader: downloader)
         if command == .remove { app.selected = [] }
@@ -74,11 +85,24 @@ struct RootView: View {
                             Label(tag, systemImage: "number")
                                 .badge(n)
                                 .tag(SidebarSelection.tag(tag))
+                                .contextMenu {
+                                    Button("Rename Tag…") { renaming = tag; renameDraft = tag }
+                                }
                         }
                     }
                 }
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .alert("Rename #\(renaming ?? "")", isPresented: Binding(
+                get: { renaming != nil }, set: { if !$0 { renaming = nil } }
+            )) {
+                TextField("New name", text: $renameDraft)
+                Button("Rename") { commitRename() }
+                    .disabled(Tags.normalize(renameDraft) == nil)
+                Button("Cancel", role: .cancel) { renaming = nil }
+            } message: {
+                Text("Changes the tag on every item that has it. If the new name is already a tag, the two are merged.")
+            }
             .safeAreaInset(edge: .bottom) { StorageFooter(items: items) }
         } content: {
             Group {

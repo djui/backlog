@@ -7,7 +7,7 @@ enum Recents {
     static let defaults = UserDefaults(suiteName: "group.com.djui.BackLog") ?? .standard
 
     /// Where links usually come from; shown after the names you've used.
-    static let sourcePresets = ["WhatsApp", "Messages", "Instagram", "Safari", "Mail", "Signal", "Telegram", "Slack"]
+    static let sourcePresets = ["WhatsApp", "Messages", "Instagram", "Safari", "Mail", "Signal", "Telegram", "Slack", "Spotify"]
 
     static var from: [String] { defaults.stringArray(forKey: "recentFrom") ?? [] }
     static var tags: [String] { defaults.stringArray(forKey: "recentTags") ?? [] }
@@ -19,6 +19,14 @@ enum Recents {
     static func remember(tags values: [String]) {
         var list = tags
         for tag in values.reversed() { list = Suggestions.remember(tag, in: list, max: 60) }
+        defaults.set(list, forKey: "recentTags")
+    }
+
+    /// Swaps a renamed tag in the suggestions, keeping its place.
+    static func rename(tag old: String, to new: String) {
+        var seen = Set<String>()
+        let list = tags.map { $0.caseInsensitiveCompare(old) == .orderedSame ? new : $0 }
+            .filter { seen.insert($0.lowercased()).inserted }
         defaults.set(list, forKey: "recentTags")
     }
 }

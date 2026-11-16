@@ -33,6 +33,48 @@ public enum Tags {
         return ([note.trimmingCharacters(in: .whitespacesAndNewlines)] + unique.map { "#\($0)" })
             .filter { !$0.isEmpty }.joined(separator: " ")
     }
+
+    /// A typed tag name as it would be stored ("#Home workout" → "Home-workout"), or nil if it
+    /// isn't a valid tag.
+    public static func normalize(_ name: String) -> String? {
+        var t = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.hasPrefix("#") { t.removeFirst() }
+        t = t.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: #"\s+"#, with: "-", options: .regularExpression)
+        guard !t.isEmpty, t.range(of: #"^[\p{L}\p{N}_-]+$"#, options: .regularExpression) != nil else { return nil }
+        return t
+    }
+
+    /// The note with tag `old` (any capitalization) renamed to `new`, where it stands. If the note
+    /// already has `new`, the two merge into one. The rest of the note is left as written.
+    public static func rename(_ old: String, to new: String, in note: String) -> String {
+        guard let new = normalize(new), let old = normalize(old) else { return note }
+        let oldKey = old.lowercased(), newKey = new.lowercased()
+        let ns = note as NSString
+        let matches = pattern.matches(in: note, range: NSRange(location: 0, length: ns.length))
+        guard matches.contains(where: { ns.substring(with: $0.range(at: 1)).lowercased() == oldKey }) else { return note }
+
+        // Decide what each tag becomes; a second copy of the same tag is dropped.
+        var seen = Set<String>()
+        var edits: [(NSRange, String)] = []
+        for m in matches {
+            let tag = ns.substring(with: m.range(at: 1))
+            let isOld = tag.lowercased() == oldKey
+            let key = isOld ? newKey : tag.lowercased()
+            if !seen.insert(key).inserted {
+                // Take the space before it too, so no double space is left behind.
+                var r = m.range
+                if r.location > 0, ns.substring(with: NSRange(location: r.location - 1, length: 1)) == " " {
+                    r = NSRange(location: r.location - 1, length: r.length + 1)
+                }
+                edits.append((r, ""))
+            } else if isOld {
+                edits.append((m.range, "#" + new))
+            }
+        }
+        let out = NSMutableString(string: note)
+        for (range, text) in edits.reversed() { out.replaceCharacters(in: range, with: text) }
+        return (out as String).trimmingCharacters(in: .whitespaces)
+    }
 }
 
 /// Values to suggest while typing: most recent first, filtered by what's typed so far.
