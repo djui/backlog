@@ -97,4 +97,15 @@ public enum Suggestions {
         guard !v.isEmpty else { return list }
         return Array(([v] + list.filter { $0.lowercased() != v.lowercased() }).prefix(max))
     }
+
+    /// Tag suggestions that match the library: the recent ones still used on some item, in their
+    /// order, then the library's other tags (`inUse`, newest first). A tag renamed or removed on
+    /// another device drops out.
+    public static func tags(recent: [String], inUse: [String], max: Int = 60) -> [String] {
+        let used = Set(inUse.map { $0.lowercased() })
+        var seen = Set<String>()
+        return (recent.filter { used.contains($0.lowercased()) } + inUse)
+            .filter { seen.insert($0.lowercased()).inserted }
+            .prefix(max).map { $0 }
+    }
 }

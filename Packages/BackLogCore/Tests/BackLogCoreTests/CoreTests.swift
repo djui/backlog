@@ -445,5 +445,8 @@ import Testing
         #expect(Suggestions.rank(recent, presets: ["WhatsApp"], typed: "wh") == ["Anna · WhatsApp", "WhatsApp"])
         #expect(Suggestions.rank(recent, typed: "an") == ["Anna · WhatsApp"])
         #expect(Suggestions.remember("max", in: recent) == ["max", "Anna · WhatsApp", "Instagram"])
+        // Renamed elsewhere: "healthy" is gone from the library, "health" took its place.
+        #expect(Suggestions.tags(recent: ["healthy", "food", "Tech"], inUse: ["health", "tech", "food"]) == ["food", "Tech", "health"])
+        #expect(Suggestions.tags(recent: [], inUse: ["a", "A", "b"], max: 1) == ["a"])
     }
 }

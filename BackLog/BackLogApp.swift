@@ -61,7 +61,7 @@ struct BackLogApp: App {
                 .frame(minWidth: 960, minHeight: 600)
                 .task {
                     Library.improveTitles(context: container.mainContext)
-                    Recents.seed(from: container.mainContext)
+                    Recents.follow(container)
                     backfillSearch()
                     await ToolManager.shared.ensure()
                     downloader.resumePending(in: container.mainContext)

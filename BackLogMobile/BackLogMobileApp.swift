@@ -47,7 +47,7 @@ struct BackLogMobileApp: App {
                 .task {
                     importInbox()
                     Library.improveTitles(context: container.mainContext)
-                    Recents.seed(from: container.mainContext)
+                    Recents.follow(container)
                     downloader.resumePending(in: container.mainContext)
                     captureArticlesForOffline()
                     storage.run()
